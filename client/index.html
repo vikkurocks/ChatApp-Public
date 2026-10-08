@@ -28,23 +28,34 @@
 
   <section id="chatView" class="chat-layout hidden">
     <header class="topbar">
-      <div><h1>💬 <span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
-      <button id="leaveBtn" class="secondary">Leave</button>
+      <div class="room-info"><h1>💬 <span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
+      <div class="top-actions">
+        <button id="usersToggle" class="secondary mobile-only" type="button">👥 <span id="mobileOnlineCount">0</span></button>
+        <button id="leaveBtn" class="secondary">Leave</button>
+      </div>
     </header>
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
       <div class="side-title">Online <span id="onlineCount">0</span></div>
       <div id="users"></div>
     </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay hidden"></div>
     <section class="chat">
       <div id="messages" class="messages"></div>
       <div id="typingIndicator" class="typing-indicator"></div>
       <div id="replyBar" class="reply-bar hidden"><div><small>Replying to</small><div id="replyText"></div></div><button id="cancelReply" type="button">✕</button></div>
       <div id="emojiPicker" class="emoji-picker hidden"></div>
       <form id="messageForm" class="composer">
-        <button id="emojiBtn" type="button" class="emoji-btn">😊</button>
+        <button id="emojiBtn" type="button" class="emoji-btn" aria-label="Emoji">😊</button>
+        <button id="imageBtn" type="button" class="image-btn" aria-label="Share image" title="Share image">📷</button>
+        <input id="imageInput" type="file" accept="image/*" hidden>
         <input id="messageInput" maxlength="2000" placeholder="Type a message..." autocomplete="off">
         <button type="submit">Send</button>
       </form>
+    </section>
+    <div id="imageViewer" class="image-viewer hidden" role="dialog" aria-modal="true" aria-label="Image viewer">
+      <button id="closeImageViewer" class="image-viewer-close" type="button" aria-label="Close image">✕</button>
+      <img id="viewerImage" alt="Shared image">
+    </div>
     </section>
     <div id="callPanel" class="call-panel hidden">
       <div class="call-head"><span id="callTitle">Call</span><button id="closeCall" type="button">✕</button></div>
