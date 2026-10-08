@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChatApp</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <section id="joinView" class="card join-card">
+    <div class="brand">
+      <div class="logo">💬</div>
+      <div><h1>ChatApp</h1><p>Private rooms • realtime chat • calls</p></div>
+    </div>
+    <form id="joinForm">
+      <label>Username</label>
+      <input id="name" maxlength="24" minlength="2" placeholder="Your name" autocomplete="off" required>
+      <label>Room name</label>
+      <input id="room" maxlength="40" minlength="2" placeholder="e.g. Friends" autocomplete="off" required>
+      <label>Room password</label>
+      <input id="password" type="password" minlength="8" maxlength="128" placeholder="Minimum 8 characters" required>
+      <button type="submit">Join / Create Room</button>
+      <p id="joinError" class="error"></p>
+    </form>
+    <div class="note">Your room is protected by a password. Use a strong password and don't share it publicly.</div>
+  </section>
+
+  <section id="chatView" class="chat-layout hidden">
+    <header class="topbar">
+      <div><h1>💬 <span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
+      <button id="leaveBtn" class="secondary">Leave</button>
+    </header>
+    <aside class="sidebar">
+      <div class="side-title">Online <span id="onlineCount">0</span></div>
+      <div id="users"></div>
+    </aside>
+    <section class="chat">
+      <div id="messages" class="messages"></div>
+      <div id="typingIndicator" class="typing-indicator"></div>
+      <div id="replyBar" class="reply-bar hidden"><div><small>Replying to</small><div id="replyText"></div></div><button id="cancelReply" type="button">✕</button></div>
+      <div id="emojiPicker" class="emoji-picker hidden"></div>
+      <form id="messageForm" class="composer">
+        <button id="emojiBtn" type="button" class="emoji-btn">😊</button>
+        <input id="messageInput" maxlength="2000" placeholder="Type a message..." autocomplete="off">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+    <div id="callPanel" class="call-panel hidden">
+      <div class="call-head"><span id="callTitle">Call</span><button id="closeCall" type="button">✕</button></div>
+      <div class="call-videos">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div id="audioOnly" class="audio-only">📞</div>
+      </div>
+      <div id="incomingActions" class="call-actions hidden"><button id="acceptCall">Accept</button><button id="rejectCall" class="danger">Reject</button></div>
+      <div id="activeActions" class="call-actions hidden"><button id="toggleMic">🎤 Mute</button><button id="toggleCam">📹 Camera</button><button id="endCall" class="danger">☎ End</button></div>
+    </div>
+  </section>
+</main>
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
