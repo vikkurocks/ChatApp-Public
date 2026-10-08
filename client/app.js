@@ -8,6 +8,7 @@ const messageForm=$('messageForm'), messageInput=$('messageInput'), typingIndica
 const replyBar=$('replyBar'), replyText=$('replyText'), emojiPicker=$('emojiPicker');
 const imageBtn=$('imageBtn'), imageInput=$('imageInput'), imageViewer=$('imageViewer'), viewerImage=$('viewerImage');
 let myName='', replyTo=null, typingTimer, token='';
+let notificationsEnabled=false;
 const sidebar=$('sidebar'), usersToggle=$('usersToggle'), sidebarOverlay=$('sidebarOverlay');
 let peer=null, localStream=null, callPeerId=null, callKind='video', incomingOffer=null;
 const pendingIce=[], typingUsers=new Set();
@@ -17,6 +18,33 @@ const MAX_IMAGE_DATA=700000;
 function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 function timeText(v){return new Date(v).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}
 function scrollBottom(){messages.scrollTop=messages.scrollHeight;}
+function showToast(name, text){
+  const box=$('toastContainer'); if(!box)return;
+  const t=document.createElement('div'); t.className='toast';
+  const b=document.createElement('b'); b.textContent=`💬 ${name}`;
+  const s=document.createElement('span'); s.textContent=text;
+  t.append(b,s); box.appendChild(t);
+  setTimeout(()=>t.remove(),4500);
+}
+function requestNotifications(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='granted'){notificationsEnabled=true;return;}
+  if(Notification.permission==='default'){
+    Notification.requestPermission().then(p=>{notificationsEnabled=p==='granted';}).catch(()=>{});
+  }
+}
+function notifyIncoming(item){
+  if(item.name===myName)return;
+  const preview=item.type==='image'?'📷 Sent an image':(item.text||'New message');
+  showToast(item.name,preview);
+  if(document.hidden && notificationsEnabled){
+    try{
+      const n=new Notification(item.name,{body:preview,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%231687f4"/><text x="32" y="43" font-size="34" text-anchor="middle">💬</text></svg>'});
+      n.onclick=()=>{window.focus();n.close();};
+    }catch{}
+  }
+}
+
 function replyPreview(i){
   if(!i.replyTo)return '';
   const text=i.replyTo.type==='image'?'📷 Image':i.replyTo.text;
@@ -100,6 +128,7 @@ joinForm.addEventListener('submit',async e=>{
     const r=await fetch(`${SERVER_URL}/api/join`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,room,password})});
     const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not join.');
     token=data.token;myName=data.user.name;roomTitle.textContent=data.room;messages.innerHTML='';
+    requestNotifications();
     data.messages.forEach(addMessage);
     socket.auth={token};socket.connect();
     joinView.classList.add('hidden');chatView.classList.remove('hidden');messageInput.focus();
@@ -152,8 +181,8 @@ imageInput.addEventListener('change',async()=>{
 });
 
 socket.on('connect_error',e=>console.error(e.message));
-socket.on('message:new',addMessage);
-socket.on('system:message',addSystem);
+socket.on('message:new',item=>{addMessage(item);notifyIncoming(item);});
+socket.on('system:message',t=>{addSystem(t);if(document.hidden && notificationsEnabled){try{new Notification('ChatApp',{body:t});}catch{}}});
 socket.on('users:update',renderUsers);
 socket.on('message:deleted',({id})=>{
   const el=messages.querySelector(`[data-id="${CSS.escape(id)}"]`);if(!el)return;
