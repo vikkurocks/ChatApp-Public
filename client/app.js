@@ -3,10 +3,11 @@ const socket = io(SERVER_URL, { autoConnect:false, transports:["websocket","poll
 
 const $ = id => document.getElementById(id);
 const joinView=$("joinView"), chatView=$("chatView"), joinForm=$("joinForm"), joinError=$("joinError");
-const messages=$("messages"), users=$("users"), onlineCount=$("onlineCount"), roomTitle=$("roomTitle");
+const messages=$("messages"), users=$("users"), onlineCount=$("onlineCount"), mobileOnlineCount=$("mobileOnlineCount"), roomTitle=$("roomTitle");
 const messageForm=$("messageForm"), messageInput=$("messageInput"), typingIndicator=$("typingIndicator");
 const replyBar=$("replyBar"), replyText=$("replyText"), emojiPicker=$("emojiPicker");
 let myName="", replyTo=null, typingTimer, token="", selectedPeer=null;
+const sidebar=$("sidebar"), usersToggle=$("usersToggle"), sidebarOverlay=$("sidebarOverlay");
 let peer=null, localStream=null, callPeerId=null, callKind="video", incomingOffer=null;
 const pendingIce=[], typingUsers=new Set();
 const emojis=["😀","😂","🤣","😊","😍","😘","😎","🤔","😢","😭","😡","👍","👎","👏","🙏","❤️","🔥","🎉","💯","😴","🤝","👌","🥳","😇","🙌"];
@@ -28,7 +29,7 @@ function addMessage(item){
 }
 function addSystem(t){const e=document.createElement("div");e.className="system";e.textContent=t;messages.appendChild(e);scrollBottom();}
 function renderUsers(list){
-  users.innerHTML=""; onlineCount.textContent=list.length;
+  users.innerHTML=""; onlineCount.textContent=list.length; if(mobileOnlineCount) mobileOnlineCount.textContent=list.length;
   list.forEach(u=>{
     const e=document.createElement("div");e.className="user";
     const l=document.createElement("span");l.textContent=u.name+(u.name===myName?" (you)":"");e.appendChild(l);
@@ -70,6 +71,9 @@ messageInput.addEventListener("input",()=>{socket.emit("typing",{isTyping:messag
 $("emojiBtn").onclick=()=>emojiPicker.classList.toggle("hidden");
 $("cancelReply").onclick=cancelReply;
 $("leaveBtn").onclick=()=>location.reload();
+function closeUsers(){sidebar?.classList.remove("open");sidebarOverlay?.classList.add("hidden");}
+usersToggle?.addEventListener("click",()=>{sidebar.classList.toggle("open");sidebarOverlay.classList.toggle("hidden",!sidebar.classList.contains("open"));});
+sidebarOverlay?.addEventListener("click",closeUsers);
 document.addEventListener("click",e=>{if(!emojiPicker.contains(e.target)&&e.target.id!=="emojiBtn")emojiPicker.classList.add("hidden");});
 
 socket.on("connect_error",e=>{console.error(e.message);});
@@ -99,6 +103,7 @@ async function makePeer(target){
   localStream?.getTracks().forEach(t=>peer.addTrack(t,localStream)); return peer;
 }
 async function startCall(id,name,kind){
+  closeUsers();
   if(peer){alert("Already on a call.");return;}
   callPeerId=id;callKind=kind;
   try{
