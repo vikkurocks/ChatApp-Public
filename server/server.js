@@ -42,7 +42,7 @@ app.use(cors({
   methods: ["GET", "POST"],
   credentials: false
 }));
-app.use(express.json({ limit: "32kb" }));
+app.use(express.json({ limit: "1mb" }));
 
 const joinLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -62,7 +62,7 @@ const io = new Server(server, {
     origin: CLIENT_ORIGIN,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 32 * 1024
+  maxHttpBufferSize: 1024 * 1024
 });
 
 function cleanName(v) {
@@ -73,6 +73,12 @@ function cleanRoom(v) {
 }
 function cleanMessage(v) {
   return String(v || "").trim().slice(0, 2000);
+}
+function cleanImageData(v) {
+  const value = String(v || "");
+  if (value.length > 700000) return "";
+  if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=\r\n]+$/.test(value)) return "";
+  return value;
 }
 function tokenFor(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
@@ -106,13 +112,18 @@ async function initDb() {
       room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(24) NOT NULL,
-      text VARCHAR(2000) NOT NULL,
+      text TEXT NOT NULL,
+      message_type VARCHAR(16) NOT NULL DEFAULT 'text',
       reply_to_id UUID NULL,
       reply_to_name VARCHAR(24) NULL,
-      reply_to_text VARCHAR(2000) NULL,
+      reply_to_text TEXT NULL,
       deleted BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(16) NOT NULL DEFAULT 'text';
+    ALTER TABLE messages ALTER COLUMN text TYPE TEXT;
+    ALTER TABLE messages ALTER COLUMN reply_to_text TYPE TEXT;
 
     CREATE INDEX IF NOT EXISTS idx_messages_room_created
       ON messages(room_id, created_at DESC);
@@ -184,7 +195,7 @@ app.post("/api/join", joinLimiter, async (req, res) => {
     );
 
     const messages = await pool.query(`
-      SELECT id, name, text, reply_to_id, reply_to_name, reply_to_text, deleted, created_at
+      SELECT id, name, text, message_type, reply_to_id, reply_to_name, reply_to_text, deleted, created_at
       FROM messages
       WHERE room_id=$1
       ORDER BY created_at DESC
@@ -204,6 +215,7 @@ app.post("/api/join", joinLimiter, async (req, res) => {
         id: row.id,
         name: row.name,
         text: row.deleted ? "This message was deleted" : row.text,
+        type: row.deleted ? "text" : (row.message_type || "text"),
         time: row.created_at,
         deleted: row.deleted,
         replyTo: row.reply_to_id ? {
@@ -251,18 +263,19 @@ io.on("connection", async socket => {
   socket.on("message:send", async (payload, callback) => {
     const done = typeof callback === "function" ? callback : () => {};
     try {
-      const text = cleanMessage(payload?.text);
-      if (!text) return done({ ok: false, error: "Message is empty." });
+      const type = payload?.type === "image" ? "image" : "text";
+      const content = type === "image" ? cleanImageData(payload?.text) : cleanMessage(payload?.text);
+      if (!content) return done({ ok: false, error: type === "image" ? "Image is invalid or too large." : "Message is empty." });
 
       const reply = payload?.replyTo;
       const id = crypto.randomUUID();
 
       await pool.query(`
         INSERT INTO messages(
-          id,room_id,user_id,name,text,reply_to_id,reply_to_name,reply_to_text
-        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+          id,room_id,user_id,name,text,message_type,reply_to_id,reply_to_name,reply_to_text
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
       `, [
-        id, room, userId, name, text,
+        id, room, userId, name, content, type,
         reply?.id || null,
         cleanName(reply?.name),
         cleanMessage(reply?.text)
@@ -271,11 +284,12 @@ io.on("connection", async socket => {
       await pool.query("UPDATE rooms SET last_active_at=NOW() WHERE id=$1", [room]);
 
       const item = {
-        id, name, text, time: new Date().toISOString(),
+        id, name, text: content, type, time: new Date().toISOString(),
         replyTo: reply?.id ? {
           id: String(reply.id),
           name: cleanName(reply.name),
-          text: cleanMessage(reply.text)
+          text: cleanMessage(reply.text),
+          type: reply?.type === "image" ? "image" : "text"
         } : null
       };
 
