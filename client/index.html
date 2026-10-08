@@ -28,17 +28,13 @@
 
   <section id="chatView" class="chat-layout hidden">
     <header class="topbar">
-      <div class="room-info"><h1>💬 <span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
-      <div class="top-actions">
-        <button id="usersToggle" class="secondary mobile-only" type="button">👥 <span id="mobileOnlineCount">0</span></button>
-        <button id="leaveBtn" class="secondary">Leave</button>
-      </div>
+      <div><h1>💬 <span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
+      <button id="leaveBtn" class="secondary">Leave</button>
     </header>
-    <aside id="sidebar" class="sidebar">
+    <aside class="sidebar">
       <div class="side-title">Online <span id="onlineCount">0</span></div>
       <div id="users"></div>
     </aside>
-    <div id="sidebarOverlay" class="sidebar-overlay hidden"></div>
     <section class="chat">
       <div id="messages" class="messages"></div>
       <div id="typingIndicator" class="typing-indicator"></div>
