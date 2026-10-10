@@ -62,8 +62,26 @@ const io = new Server(server, {
     origin: CLIENT_ORIGIN,
     methods: ["GET", "POST"]
   },
+  // Allow mobile networks a little room before treating a client as gone.
+  pingInterval: 25000,
+  pingTimeout: 60000,
   maxHttpBufferSize: 1024 * 1024
 });
+
+// Keep a short reconnect grace period so brief mobile-network drops do not
+// immediately remove a user from the room or delete their DB row.
+const disconnectTimers = new Map();
+const RECONNECT_GRACE_MS = 30000;
+
+function onlineUsersForRoom(room) {
+  const online = new Map();
+  for (const s of io.sockets.sockets.values()) {
+    if (s.data?.room === room && s.data?.userId) {
+      online.set(s.data.userId, { id: s.data.userId, name: s.data.name });
+    }
+  }
+  return [...online.values()];
+}
 
 function cleanName(v) {
   return String(v || "").trim().replace(/\s+/g, " ").slice(0, 24);
@@ -244,6 +262,23 @@ io.use((socket, next) => {
 
 io.on("connection", async socket => {
   const { sub: userId, room, name } = socket.user;
+  const reconnectTimer = disconnectTimers.get(userId);
+  const isReconnecting = Boolean(reconnectTimer);
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  disconnectTimers.delete(userId);
+
+  // Restore the online-user row if a prior disconnect cleanup already removed it.
+  try {
+    await pool.query(
+      "INSERT INTO users(id,room_id,name) VALUES($1,$2,$3) ON CONFLICT (id) DO NOTHING",
+      [userId, room, name]
+    );
+  } catch (err) {
+    console.error("socket user restore failed:", err.message);
+    socket.disconnect(true);
+    return;
+  }
+
   socket.join(room);
   socket.data.room = room;
   socket.data.userId = userId;
@@ -258,7 +293,7 @@ io.on("connection", async socket => {
   }
 
   io.to(room).emit("users:update", [...activeUsers.values()]);
-  socket.to(room).emit("system:message", `${name} joined the room`);
+  if (!isReconnecting) socket.to(room).emit("system:message", `${name} joined the room`);
 
   socket.on("message:send", async (payload, callback) => {
     const done = typeof callback === "function" ? callback : () => {};
@@ -341,20 +376,30 @@ io.on("connection", async socket => {
     if (to) io.to(String(to)).emit("call:end", { from: socket.id });
   });
 
-  socket.on("disconnect", async () => {
-    try {
-      await pool.query("DELETE FROM users WHERE id=$1", [userId]);
+  socket.on("disconnect", reason => {
+    console.log(`Socket disconnected: ${name} (${reason}); reconnect grace started.`);
+    const oldTimer = disconnectTimers.get(userId);
+    if (oldTimer) clearTimeout(oldTimer);
 
-      const users = await pool.query(
-        "SELECT id,name FROM users WHERE room_id=$1 ORDER BY name",
-        [room]
+    const timer = setTimeout(async () => {
+      disconnectTimers.delete(userId);
+      // A reconnect may have happened while this timer was waiting.
+      const stillConnected = [...io.sockets.sockets.values()].some(
+        s => s.data?.userId === userId && s.data?.room === room
       );
-      io.to(room).emit("users:update", users.rows.map(publicUser));
-      socket.to(room).emit("system:message", `${name} left the room`);
-      await pool.query("UPDATE rooms SET last_active_at=NOW() WHERE id=$1", [room]);
-    } catch (err) {
-      console.error("disconnect cleanup:", err.message);
-    }
+      if (stillConnected) return;
+
+      try {
+        await pool.query("DELETE FROM users WHERE id=$1", [userId]);
+        io.to(room).emit("users:update", onlineUsersForRoom(room));
+        io.to(room).emit("system:message", `${name} left the room`);
+        await pool.query("UPDATE rooms SET last_active_at=NOW() WHERE id=$1", [room]);
+      } catch (err) {
+        console.error("disconnect cleanup:", err.message);
+      }
+    }, RECONNECT_GRACE_MS);
+
+    disconnectTimers.set(userId, timer);
   });
 });
 
