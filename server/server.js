@@ -164,7 +164,7 @@ async function initDb() {
       youtube_id VARCHAR(32),
       video_id UUID,
       title TEXT NOT NULL DEFAULT '',
-      current_time DOUBLE PRECISION NOT NULL DEFAULT 0,
+      playback_time DOUBLE PRECISION NOT NULL DEFAULT 0,
       is_playing BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -365,10 +365,10 @@ io.on("connection", async socket => {
   if (!isReconnecting) socket.to(room).emit("system:message", `${name} joined the room`);
 
   try {
-    const savedWatch = await pool.query("SELECT video_type,youtube_id,video_id,title,current_time,is_playing FROM watch_states WHERE room_id=$1", [room]);
+    const savedWatch = await pool.query("SELECT video_type,youtube_id,video_id,title,playback_time,is_playing FROM watch_states WHERE room_id=$1", [room]);
     if (savedWatch.rowCount) {
       const r = savedWatch.rows[0];
-      socket.emit("watch:state", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime: Number(r.current_time || 0), isPlaying: Boolean(r.is_playing) });
+      socket.emit("watch:state", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime: Number(r.playback_time || 0), isPlaying: Boolean(r.is_playing) });
     }
   } catch (err) { console.error("watch state load failed:", err.message); }
 
@@ -386,8 +386,8 @@ io.on("connection", async socket => {
         if (!exists.rowCount) return done({ ok: false, error: "Upload the MP4 again; it was not found." });
       }
       const state = { type, youtubeId: type === "youtube" ? youtubeId : null, videoId, title, currentTime: 0, isPlaying: false };
-      await pool.query(`INSERT INTO watch_states(room_id,video_type,youtube_id,video_id,title,current_time,is_playing,updated_at)
-        VALUES($1,$2,$3,$4,$5,0,false,NOW()) ON CONFLICT(room_id) DO UPDATE SET video_type=EXCLUDED.video_type,youtube_id=EXCLUDED.youtube_id,video_id=EXCLUDED.video_id,title=EXCLUDED.title,current_time=0,is_playing=false,updated_at=NOW()`,
+      await pool.query(`INSERT INTO watch_states(room_id,video_type,youtube_id,video_id,title,playback_time,is_playing,updated_at)
+        VALUES($1,$2,$3,$4,$5,0,false,NOW()) ON CONFLICT(room_id) DO UPDATE SET video_type=EXCLUDED.video_type,youtube_id=EXCLUDED.youtube_id,video_id=EXCLUDED.video_id,title=EXCLUDED.title,playback_time=0,is_playing=false,updated_at=NOW()`,
         [room, state.type, state.youtubeId, state.videoId, state.title]);
       io.to(room).emit("watch:state", state);
       done({ ok: true });
@@ -398,7 +398,7 @@ io.on("connection", async socket => {
     try {
       const currentTime = Math.max(0, Math.min(Number(payload.currentTime) || 0, 24 * 60 * 60));
       const isPlaying = Boolean(payload.isPlaying);
-      const saved = await pool.query("UPDATE watch_states SET current_time=$2,is_playing=$3,updated_at=NOW() WHERE room_id=$1 RETURNING video_type,youtube_id,video_id,title", [room, currentTime, isPlaying]);
+      const saved = await pool.query("UPDATE watch_states SET playback_time=$2,is_playing=$3,updated_at=NOW() WHERE room_id=$1 RETURNING video_type,youtube_id,video_id,title", [room, currentTime, isPlaying]);
       if (!saved.rowCount) return;
       const r = saved.rows[0];
       socket.to(room).emit("watch:sync", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime, isPlaying, by: socket.id });
