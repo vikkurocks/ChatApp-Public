@@ -148,6 +148,26 @@ async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_users_room
       ON users(room_id);
+
+    CREATE TABLE IF NOT EXISTS shared_videos (
+      id UUID PRIMARY KEY,
+      room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      mime_type VARCHAR(80) NOT NULL,
+      data BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS watch_states (
+      room_id TEXT PRIMARY KEY REFERENCES rooms(id) ON DELETE CASCADE,
+      video_type VARCHAR(16) NOT NULL,
+      youtube_id VARCHAR(32),
+      video_id UUID,
+      title TEXT NOT NULL DEFAULT '',
+      current_time DOUBLE PRECISION NOT NULL DEFAULT 0,
+      is_playing BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
@@ -249,6 +269,55 @@ app.post("/api/join", joinLimiter, async (req, res) => {
   }
 });
 
+function requestClaims(req, res, next) {
+  try {
+    const auth = String(req.headers.authorization || "");
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (!token) return res.status(401).json({ error: "Authentication required." });
+    req.claims = verifyToken(token);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Session expired. Rejoin the room." });
+  }
+}
+
+// MP4 uploads are deliberately capped: this stores one shared video per room in PostgreSQL.
+app.post("/api/watch/upload", requestClaims, express.raw({ type: ["video/mp4", "application/octet-stream"], limit: "25mb" }), async (req, res) => {
+  try {
+    const room = req.claims.room;
+    const rawName = String(req.headers["x-video-name"] || "Shared%20video.mp4");
+    let name = rawName; try { name = decodeURIComponent(rawName); } catch {}
+    name = name.replace(/[\/\r\n]/g, "_").slice(0, 180);
+    const mime = String(req.headers["content-type"] || "video/mp4").toLowerCase();
+    if (!/^video\/(mp4|quicktime)$/.test(mime)) return res.status(415).json({ error: "Please upload an MP4 video." });
+    if (!Buffer.isBuffer(req.body) || req.body.length < 1) return res.status(400).json({ error: "Video file is empty." });
+    if (req.body.length > 20 * 1024 * 1024) return res.status(413).json({ error: "MP4 must be 20 MB or smaller." });
+    const id = crypto.randomUUID();
+    await pool.query("DELETE FROM shared_videos WHERE room_id=$1", [room]);
+    await pool.query("INSERT INTO shared_videos(id,room_id,name,mime_type,data) VALUES($1,$2,$3,$4,$5)", [id, room, name, mime, req.body]);
+    res.json({ ok: true, videoId: id, title: name });
+  } catch (err) {
+    console.error("watch upload failed:", err.message);
+    res.status(500).json({ error: "Could not store video. Check database space and try a smaller MP4." });
+  }
+});
+
+app.get("/api/watch/video/:id", requestClaims, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT name,mime_type,data FROM shared_videos WHERE id=$1 AND room_id=$2", [req.params.id, req.claims.room]);
+    if (!result.rowCount) return res.status(404).json({ error: "Video not found in this room." });
+    const video = result.rows[0];
+    res.setHeader("Content-Type", video.mime_type);
+    res.setHeader("Content-Length", video.data.length);
+    res.setHeader("Content-Disposition", "inline; filename*=UTF-8''" + encodeURIComponent(video.name));
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(video.data);
+  } catch (err) {
+    console.error("watch video read failed:", err.message);
+    res.status(500).json({ error: "Could not load video." });
+  }
+});
+
 io.use((socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
@@ -294,6 +363,55 @@ io.on("connection", async socket => {
 
   io.to(room).emit("users:update", [...activeUsers.values()]);
   if (!isReconnecting) socket.to(room).emit("system:message", `${name} joined the room`);
+
+  try {
+    const savedWatch = await pool.query("SELECT video_type,youtube_id,video_id,title,current_time,is_playing FROM watch_states WHERE room_id=$1", [room]);
+    if (savedWatch.rowCount) {
+      const r = savedWatch.rows[0];
+      socket.emit("watch:state", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime: Number(r.current_time || 0), isPlaying: Boolean(r.is_playing) });
+    }
+  } catch (err) { console.error("watch state load failed:", err.message); }
+
+  socket.on("watch:set", async (payload = {}, callback) => {
+    const done = typeof callback === "function" ? callback : () => {};
+    try {
+      const type = payload.type === "mp4" ? "mp4" : payload.type === "youtube" ? "youtube" : "";
+      const youtubeId = String(payload.youtubeId || "").trim();
+      const videoId = type === "mp4" ? String(payload.videoId || "") : null;
+      const title = String(payload.title || (type === "youtube" ? "YouTube video" : "Shared MP4")).slice(0, 180);
+      if (!type) return done({ ok: false, error: "Unsupported video type." });
+      if (type === "youtube" && !/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return done({ ok: false, error: "Invalid YouTube video ID." });
+      if (type === "mp4") {
+        const exists = await pool.query("SELECT id FROM shared_videos WHERE id=$1 AND room_id=$2", [videoId, room]);
+        if (!exists.rowCount) return done({ ok: false, error: "Upload the MP4 again; it was not found." });
+      }
+      const state = { type, youtubeId: type === "youtube" ? youtubeId : null, videoId, title, currentTime: 0, isPlaying: false };
+      await pool.query(`INSERT INTO watch_states(room_id,video_type,youtube_id,video_id,title,current_time,is_playing,updated_at)
+        VALUES($1,$2,$3,$4,$5,0,false,NOW()) ON CONFLICT(room_id) DO UPDATE SET video_type=EXCLUDED.video_type,youtube_id=EXCLUDED.youtube_id,video_id=EXCLUDED.video_id,title=EXCLUDED.title,current_time=0,is_playing=false,updated_at=NOW()`,
+        [room, state.type, state.youtubeId, state.videoId, state.title]);
+      io.to(room).emit("watch:state", state);
+      done({ ok: true });
+    } catch (err) { console.error("watch set failed:", err.message); done({ ok: false, error: "Could not set shared video." }); }
+  });
+
+  socket.on("watch:sync", async (payload = {}) => {
+    try {
+      const currentTime = Math.max(0, Math.min(Number(payload.currentTime) || 0, 24 * 60 * 60));
+      const isPlaying = Boolean(payload.isPlaying);
+      const saved = await pool.query("UPDATE watch_states SET current_time=$2,is_playing=$3,updated_at=NOW() WHERE room_id=$1 RETURNING video_type,youtube_id,video_id,title", [room, currentTime, isPlaying]);
+      if (!saved.rowCount) return;
+      const r = saved.rows[0];
+      socket.to(room).emit("watch:sync", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime, isPlaying, by: socket.id });
+    } catch (err) { console.error("watch sync failed:", err.message); }
+  });
+
+  socket.on("watch:stop", async () => {
+    try {
+      await pool.query("DELETE FROM watch_states WHERE room_id=$1", [room]);
+      await pool.query("DELETE FROM shared_videos WHERE room_id=$1", [room]);
+      io.to(room).emit("watch:cleared");
+    } catch (err) { console.error("watch clear failed:", err.message); }
+  });
 
   socket.on("message:send", async (payload, callback) => {
     const done = typeof callback === "function" ? callback : () => {};
