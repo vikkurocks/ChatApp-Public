@@ -9,36 +9,22 @@
 <body>
 <main class="app">
   <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
-  <section id="joinView" class="login-screen">
-    <div class="login-visual">
-      <div class="brand">
-        <div class="logo" aria-hidden="true">•••</div>
-        <div><h1>Chat<span>App</span></h1><p>Real Conversations <b>•</b> No Limits</p></div>
-      </div>
-      <div class="login-features">
-        <div class="feature"><span class="feature-icon">ϟ</span><div><strong>Instant Chat</strong><small>Talk to your friends<br>in real-time</small></div></div>
-        <div class="feature"><span class="feature-icon">⬡</span><div><strong>Private Rooms</strong><small>Your conversations<br>stay with you</small></div></div>
-        <div class="feature"><span class="feature-icon">♧</span><div><strong>Watch Together</strong><small>Share videos and<br>enjoy them in sync</small></div></div>
-      </div>
-      <div class="hero-copy"><span>CONNECT.</span><span>CHAT.</span><span>SHARE.</span><p>Better conversations<br>start here.</p></div>
-      <div class="hero-scene" aria-hidden="true"><div class="scene-moon"></div><div class="scene-city"></div><div class="scene-desk"></div></div>
-      <div class="login-footer">A private space for your people <span>✦</span></div>
+  <section id="joinView" class="card join-card">
+    <div class="brand">
+      <div class="logo">💬</div>
+      <div><h1>ChatApp</h1><p>Private rooms • realtime chat • calls</p></div>
     </div>
-    <section class="card join-card">
-      <div class="form-heading"><span class="form-wave">👋</span><div><h2>Join / Create Room</h2><p>Fill in the details below to get started</p></div></div>
-      <form id="joinForm">
-        <label for="name">Username</label>
-        <input id="name" maxlength="24" minlength="2" placeholder="Your name" autocomplete="off" required>
-        <label for="room">Room name</label>
-        <input id="room" maxlength="40" minlength="2" placeholder="e.g. Friends" autocomplete="off" required>
-        <label for="password">Room password</label>
-        <input id="password" type="password" minlength="8" maxlength="128" placeholder="Minimum 8 characters" required>
-        <button type="submit">↪ &nbsp; Join / Create Room</button>
-        <p id="joinError" class="error"></p>
-      </form>
-      <div class="note"><span>⬡</span><div><strong>Your room is protected by a password</strong><small>Use a strong password and don't share it publicly.</small></div></div>
-      <div class="creator-credit">Created with care · ChatApp</div>
-    </section>
+    <form id="joinForm">
+      <label>Username</label>
+      <input id="name" maxlength="24" minlength="2" placeholder="Your name" autocomplete="off" required>
+      <label>Room name</label>
+      <input id="room" maxlength="40" minlength="2" placeholder="e.g. Friends" autocomplete="off" required>
+      <label>Room password</label>
+      <input id="password" type="password" minlength="8" maxlength="128" placeholder="Minimum 8 characters" required>
+      <button type="submit">Join / Create Room</button>
+      <p id="joinError" class="error"></p>
+    </form>
+    <div class="note">Your room is protected by a password. Use a strong password and don't share it publicly.</div>
   </section>
 
   <section id="chatView" class="chat-layout hidden">
