@@ -186,7 +186,13 @@ const watchFileInput=$('watchFileInput'), watchStatus=$('watchStatus'), watchEmp
 const watchYoutubeHost=$('watchYoutubeHost'), watchYoutubePlayerEl=$('watchYoutubePlayer'), watchMp4Player=$('watchMp4Player');
 let watchState=null, ytPlayer=null, ytApiPromise=null, remoteWatchApply=false, mp4ObjectUrl=null;
 let watchPoll=null, lastWatchTime=0, lastWatchPollAt=0, lastWatchSyncAt=0, lastWatchSignature='';
-function openWatch(){watchModal.classList.remove('hidden');document.body.classList.add('watch-open');if(watchState)applyWatchState(watchState);}
+function openWatch(){
+  // Re-open the existing player without re-applying the last server snapshot.
+  // Re-applying stale state here seeks YouTube/MP4 back to the last synced time.
+  watchModal.classList.remove('hidden');
+  document.body.classList.add('watch-open');
+  if(watchState){watchEmpty.classList.add('hidden');watchStatus.textContent=`Now sharing: ${watchState.title||'Video'} · controls are synchronized`;}
+}
 function closeWatch(){watchModal.classList.add('hidden');document.body.classList.remove('watch-open');}
 $('watchOpenBtn').onclick=openWatch;
 $('watchCloseBtn').onclick=closeWatch;
