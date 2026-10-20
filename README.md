@@ -3,8 +3,11 @@
 A lightweight, room-based real-time chat app for devices connected to the same Wi-Fi or local network. It includes chat, online-user presence, message replies/deletion, typing indicators, emoji, and peer-to-peer voice/video calls.
 
 **Creator:** Vikas Choudhary & Shivam Chauhan
-**Project type:** Node.js + Express + Socket.IO web application  
+
+**Project type:** Node.js + Express + Socket.IO web application 
+
 **Intended use:** Local network / personal testing
+
 
 ## Features
 
