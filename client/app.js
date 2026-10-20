@@ -187,13 +187,19 @@ const watchYoutubeHost=$('watchYoutubeHost'), watchYoutubePlayerEl=$('watchYoutu
 let watchState=null, ytPlayer=null, ytApiPromise=null, remoteWatchApply=false, mp4ObjectUrl=null;
 let watchPoll=null, lastWatchTime=0, lastWatchPollAt=0, lastWatchSyncAt=0, lastWatchSignature='';
 function openWatch(){
-  // Re-open the existing player without re-applying the last server snapshot.
-  // Re-applying stale state here seeks YouTube/MP4 back to the last synced time.
+  // Keep the existing player alive and show it beside the chat.
+  // Do not re-apply a stale server snapshot here, or playback may jump backwards.
   watchModal.classList.remove('hidden');
+  $('chatView').classList.add('watch-visible');
   document.body.classList.add('watch-open');
   if(watchState){watchEmpty.classList.add('hidden');watchStatus.textContent=`Now sharing: ${watchState.title||'Video'} · controls are synchronized`;}
 }
-function closeWatch(){watchModal.classList.add('hidden');document.body.classList.remove('watch-open');}
+function closeWatch(){
+  // Hiding the panel must not destroy or pause the player.
+  watchModal.classList.add('hidden');
+  $('chatView').classList.remove('watch-visible');
+  document.body.classList.remove('watch-open');
+}
 $('watchOpenBtn').onclick=openWatch;
 $('watchCloseBtn').onclick=closeWatch;
 watchModal.addEventListener('click',e=>{if(e.target===watchModal)closeWatch();});
