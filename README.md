@@ -1,6 +1,21 @@
 # ChatApp Public Upgrade v2
 
-This upgrades the supplied LAN Chat project for public internet use.
+A lightweight, room-based real-time chat app for devices connected to the same Wi-Fi or local network. It includes chat, online-user presence, message replies/deletion, typing indicators, emoji, and peer-to-peer voice/video calls.
+
+**Creator:** Vikas Choudhary & Shivam Chauhan
+**Project type:** Node.js + Express + Socket.IO web application  
+**Intended use:** Local network / personal testing
+
+## Features
+
+- Create or join a named chat room with a room password
+- Choose a username; duplicate usernames in the same room are rejected
+- Real-time messages, online-user list, and typing indicator
+- Emoji picker, reply to a message, and delete your own messages
+- Voice and video calls using WebRTC
+- Mute/unmute microphone, enable/disable camera, accept/reject/end calls
+- HTTPS server with a locally generated self-signed certificate to support camera/microphone access on LAN addresses
+- Responsive layout for desktop and mobile screens
 
 ## Architecture
 
