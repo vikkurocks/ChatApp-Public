@@ -36,3 +36,62 @@ button,input{font:inherit}button{border:0;border-radius:10px;padding:12px 16px;c
 .watch-upload-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}.watch-file-label{display:inline-flex;align-items:center;justify-content:center;padding:10px 13px;border:1px solid #345269;border-radius:10px;background:#172a39;cursor:pointer;font-size:13px;font-weight:700}.watch-file-label:hover{background:#203b50}.watch-upload-row #watchStatus{flex:1;min-width:150px;color:#8ca7bc;font-size:12px}.watch-upload-row #watchStopBtn{padding:9px 11px;font-size:12px}
 .watch-player-shell{position:relative;width:100%;aspect-ratio:16/9;min-height:190px;background:#03070b;border:1px solid #1c2c39;border-radius:13px;overflow:hidden;display:grid;place-items:center}.watch-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:20px;color:#9cb1c4}.watch-empty span{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#123b60;color:#69baff;font-size:24px}.watch-empty strong{color:#e5edf5}.watch-empty small{max-width:340px;line-height:1.5}.watch-media{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}.watch-media iframe{width:100%;height:100%;border:0}.watch-footnote{font-size:11px;color:#71899d;line-height:1.5;margin-top:10px}
 @media(max-width:600px){.watch-modal{padding:0;place-items:stretch}.watch-card{width:100%;height:100%;max-height:100dvh;border-radius:0;border:0;padding:13px 10px max(13px,env(safe-area-inset-bottom))}.watch-header h2{font-size:18px}.watch-header p{font-size:12px}.watch-link-form{gap:6px}.watch-link-form button{padding:10px 11px;font-size:12px}.watch-upload-row{gap:7px}.watch-upload-row #watchStatus{order:3;flex-basis:100%}.watch-player-shell{min-height:190px;aspect-ratio:16/9}.watch-open-btn{padding:8px 10px;font-size:12px}.top-actions{gap:5px}}
+
+/* Watch Together split view: keep chat and the video visible at the same time. */
+.chat-layout.watch-visible{
+  grid-template-columns:260px minmax(0,1fr) minmax(340px,42%);
+}
+.chat-layout.watch-visible>.topbar{grid-column:1/-1;grid-row:1}
+.chat-layout.watch-visible>.sidebar{grid-column:1;grid-row:2}
+.chat-layout.watch-visible>.chat{grid-column:2;grid-row:2;min-width:0}
+.chat-layout.watch-visible>#watchModal{
+  display:block;position:relative;inset:auto;grid-column:3;grid-row:2;
+  min-width:0;min-height:0;width:auto;height:100%;padding:10px;
+  background:#0a141e;border:0;border-left:1px solid #263745;backdrop-filter:none;
+  overflow:hidden;z-index:4;
+}
+.chat-layout.watch-visible .watch-card{
+  width:100%;height:100%;max-height:none;overflow:auto;padding:12px;
+  border-radius:14px;box-shadow:none;display:flex;flex-direction:column;gap:8px;
+}
+.chat-layout.watch-visible .watch-header{margin-bottom:2px;gap:8px}
+.chat-layout.watch-visible .watch-header h2{font-size:18px}
+.chat-layout.watch-visible .watch-header p{font-size:11px}
+.chat-layout.watch-visible .watch-link-form{margin-bottom:0;gap:6px}
+.chat-layout.watch-visible .watch-link-form button{padding:10px 11px;font-size:12px}
+.chat-layout.watch-visible .watch-link-form input{padding:10px;font-size:12px}
+.chat-layout.watch-visible .watch-upload-row{gap:6px;margin-bottom:0}
+.chat-layout.watch-visible .watch-file-label{padding:9px;font-size:11px}
+.chat-layout.watch-visible .watch-upload-row #watchStatus{font-size:11px;min-width:0}
+.chat-layout.watch-visible .watch-upload-row #watchStopBtn{padding:8px;font-size:11px}
+.chat-layout.watch-visible .watch-player-shell{flex:0 0 auto;min-height:0;aspect-ratio:16/9;width:100%}
+.chat-layout.watch-visible .watch-footnote{font-size:10px;margin-top:0}
+@media(max-width:760px){
+  .chat-layout.watch-visible{grid-template-columns:minmax(0,1fr);grid-template-rows:62px minmax(230px,42dvh) minmax(0,1fr)}
+  .chat-layout.watch-visible>.topbar{grid-column:1;grid-row:1}
+  .chat-layout.watch-visible>.sidebar{display:none}
+  .chat-layout.watch-visible>.chat{grid-column:1;grid-row:3;min-height:0}
+  .chat-layout.watch-visible>#watchModal{
+    grid-column:1;grid-row:2;padding:6px 8px;background:#0a141e;
+    border-left:0;border-bottom:1px solid #263745;width:100%;height:100%;overflow:hidden;
+  }
+  .chat-layout.watch-visible .watch-card{padding:6px 2px;height:100%;gap:5px;border:0;border-radius:0;overflow-y:auto}
+  .chat-layout.watch-visible .watch-header{align-items:center;margin:0}
+  .chat-layout.watch-visible .watch-header h2{font-size:15px;margin:0}
+  .chat-layout.watch-visible .watch-header p{display:none}
+  .chat-layout.watch-visible #watchCloseBtn{padding:6px 9px}
+  .chat-layout.watch-visible .watch-link-form{gap:5px}
+  .chat-layout.watch-visible .watch-link-form input{padding:8px;font-size:12px}
+  .chat-layout.watch-visible .watch-link-form button{padding:8px;font-size:11px}
+  .chat-layout.watch-visible .watch-upload-row{flex-wrap:nowrap;gap:5px}
+  .chat-layout.watch-visible .watch-file-label{padding:7px;font-size:10px;white-space:nowrap}
+  .chat-layout.watch-visible .watch-upload-row #watchStatus{order:initial;flex:1;font-size:10px;line-height:1.2}
+  .chat-layout.watch-visible .watch-upload-row #watchStopBtn{padding:7px;font-size:10px;white-space:nowrap}
+  .chat-layout.watch-visible .watch-player-shell{min-height:0;aspect-ratio:16/9;max-height:calc(42dvh - 125px)}
+  .chat-layout.watch-visible .watch-footnote{display:none}
+}
+@media(max-width:390px){
+  .chat-layout.watch-visible{grid-template-rows:62px minmax(215px,40dvh) minmax(0,1fr)}
+  .chat-layout.watch-visible>#watchModal{padding-left:5px;padding-right:5px}
+  .chat-layout.watch-visible .watch-upload-row #watchStopBtn{display:none}
+}
