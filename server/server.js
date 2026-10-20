@@ -349,6 +349,9 @@ io.on("connection", async socket => {
   }
 
   socket.join(room);
+  // Every active socket for this authenticated user joins a private user room.
+  // Online-user IDs exposed to the client are database user IDs, not Socket.IO IDs.
+  socket.join(`user:${userId}`);
   socket.data.room = room;
   socket.data.userId = userId;
   socket.data.name = name;
@@ -477,22 +480,33 @@ io.on("connection", async socket => {
     socket.to(room).emit("typing", { name, isTyping: !!isTyping });
   });
 
-  // WebRTC signalling. Media does not pass through this server.
+  // WebRTC signalling. The client addresses users by DB user ID, while Socket.IO
+  // normally addresses individual sockets. Relay only to an active user in this
+  // same room, using the private per-user Socket.IO room created above.
+  function relayCall(event, to, payload) {
+    const targetUserId = String(to || "");
+    if (!targetUserId || targetUserId === String(userId)) return;
+    const targetIsOnline = [...io.sockets.sockets.values()].some(
+      s => s.data?.userId === targetUserId && s.data?.room === room
+    );
+    if (!targetIsOnline) {
+      socket.emit("call:unavailable", { to: targetUserId, message: "This user is no longer connected." });
+      return;
+    }
+    io.to(`user:${targetUserId}`).emit(event, { from: String(userId), name, ...payload });
+  }
+
   socket.on("call:offer", ({ to, offer } = {}) => {
-    if (to && offer) io.to(String(to)).emit("call:offer", { from: socket.id, name, offer });
+    if (offer?.type === "offer" && offer?.sdp) relayCall("call:offer", to, { offer });
   });
   socket.on("call:answer", ({ to, answer } = {}) => {
-    if (to && answer) io.to(String(to)).emit("call:answer", { from: socket.id, answer });
+    if (answer?.type === "answer" && answer?.sdp) relayCall("call:answer", to, { answer });
   });
   socket.on("call:ice", ({ to, candidate } = {}) => {
-    if (to && candidate) io.to(String(to)).emit("call:ice", { from: socket.id, candidate });
+    if (candidate) relayCall("call:ice", to, { candidate });
   });
-  socket.on("call:reject", ({ to } = {}) => {
-    if (to) io.to(String(to)).emit("call:reject", { from: socket.id });
-  });
-  socket.on("call:end", ({ to } = {}) => {
-    if (to) io.to(String(to)).emit("call:end", { from: socket.id });
-  });
+  socket.on("call:reject", ({ to } = {}) => relayCall("call:reject", to, {}));
+  socket.on("call:end", ({ to } = {}) => relayCall("call:end", to, {}));
 
   socket.on("disconnect", reason => {
     console.log(`Socket disconnected: ${name} (${reason}); reconnect grace started.`);
