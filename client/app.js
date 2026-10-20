@@ -180,6 +180,148 @@ imageInput.addEventListener('change',async()=>{
   finally{imageBtn.disabled=false;imageBtn.textContent='📷';}
 });
 
+// Watch Together: shared YouTube/MP4 player with room-wide playback synchronization.
+const watchModal=$('watchModal'), watchYoutubeForm=$('watchYoutubeForm'), watchYoutubeUrl=$('watchYoutubeUrl');
+const watchFileInput=$('watchFileInput'), watchStatus=$('watchStatus'), watchEmpty=$('watchEmpty');
+const watchYoutubeHost=$('watchYoutubeHost'), watchYoutubePlayerEl=$('watchYoutubePlayer'), watchMp4Player=$('watchMp4Player');
+let watchState=null, ytPlayer=null, ytApiPromise=null, remoteWatchApply=false, mp4ObjectUrl=null;
+let watchPoll=null, lastWatchTime=0, lastWatchPollAt=0, lastWatchSyncAt=0, lastWatchSignature='';
+function openWatch(){watchModal.classList.remove('hidden');document.body.classList.add('watch-open');if(watchState)applyWatchState(watchState);}
+function closeWatch(){watchModal.classList.add('hidden');document.body.classList.remove('watch-open');}
+$('watchOpenBtn').onclick=openWatch;
+$('watchCloseBtn').onclick=closeWatch;
+watchModal.addEventListener('click',e=>{if(e.target===watchModal)closeWatch();});
+function extractYoutubeId(value){
+  try{
+    const u=new URL(value.trim());
+    if(['youtu.be'].includes(u.hostname.toLowerCase())) return u.pathname.split('/').filter(Boolean)[0]||'';
+    if(!/(^|\.)youtube\.com$/i.test(u.hostname)) return '';
+    if(u.pathname==='/watch') return u.searchParams.get('v')||'';
+    const m=u.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/);return m?m[1]:'';
+  }catch{return '';}
+}
+function loadYoutubeApi(){
+  if(window.YT?.Player)return Promise.resolve();
+  if(ytApiPromise)return ytApiPromise;
+  ytApiPromise=new Promise((resolve,reject)=>{
+    const old=window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady=()=>{if(typeof old==='function')old();resolve();};
+    let script=document.querySelector('script[data-youtube-iframe-api]');
+    if(!script){script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.dataset.youtubeIframeApi='1';script.onerror=()=>reject(new Error('Could not load YouTube player. Check the network/ad blocker.'));document.head.appendChild(script);}
+    setTimeout(()=>{if(!window.YT?.Player)reject(new Error('YouTube player took too long to load.'));},15000);
+  });
+  return ytApiPromise;
+}
+function watchSyncPayload(){
+  if(!watchState)return null;
+  let currentTime=0,isPlaying=false;
+  if(watchState.type==='youtube'&&ytPlayer?.getCurrentTime){try{currentTime=ytPlayer.getCurrentTime()||0;isPlaying=ytPlayer.getPlayerState()===1;}catch{}}
+  else if(watchState.type==='mp4'){currentTime=watchMp4Player.currentTime||0;isPlaying=!watchMp4Player.paused&&!watchMp4Player.ended;}
+  return {currentTime,isPlaying};
+}
+function emitWatchSync(force=false){
+  if(remoteWatchApply||!socket.connected||!watchState)return;
+  const data=watchSyncPayload();if(!data)return;
+  const signature=`${data.isPlaying}:${Math.floor(data.currentTime)}`;
+  if(!force&&signature===lastWatchSignature)return;
+  lastWatchSignature=signature;lastWatchSyncAt=Date.now();
+  socket.emit('watch:sync',data);
+}
+function applyRemotePlayback(state){
+  if(!state)return;
+  remoteWatchApply=true;
+  try{
+    if(state.type==='youtube'&&ytPlayer?.getCurrentTime){
+      const now=ytPlayer.getCurrentTime()||0;
+      if(Math.abs(now-(state.currentTime||0))>2)ytPlayer.seekTo(Math.max(0,state.currentTime||0),true);
+      const playing=ytPlayer.getPlayerState()===1;
+      if(state.isPlaying&&!playing)ytPlayer.playVideo();else if(!state.isPlaying&&playing)ytPlayer.pauseVideo();
+    }else if(state.type==='mp4'&&watchMp4Player.src){
+      const v=watchMp4Player;
+      if(Math.abs((v.currentTime||0)-(state.currentTime||0))>2){try{v.currentTime=Math.max(0,state.currentTime||0);}catch{}}
+      if(state.isPlaying&&v.paused){const p=v.play();if(p?.catch)p.catch(()=>{watchStatus.textContent='Tap Play on this device to allow synchronized playback.';});}
+      else if(!state.isPlaying&&!v.paused)v.pause();
+    }
+  }catch(err){console.warn('Could not apply remote playback state:',err);}
+  setTimeout(()=>{remoteWatchApply=false;const d=watchSyncPayload();if(d){lastWatchTime=d.currentTime;lastWatchPollAt=Date.now();}},350);
+}
+async function applyWatchState(state){
+  if(!state||!state.type)return;
+  const signature=`${state.type}:${state.youtubeId||''}:${state.videoId||''}`;
+  const changed=signature!==lastWatchSignatureForMedia;
+  watchState=state;watchEmpty.classList.add('hidden');watchStatus.textContent=`Now sharing: ${state.title||'Video'} · controls are synchronized`;
+  if(state.type==='youtube'){
+    watchYoutubeHost.classList.remove('hidden');watchMp4Player.classList.add('hidden');
+    if(changed||!ytPlayer){
+      lastWatchSignatureForMedia=signature;
+      try{
+        await loadYoutubeApi();
+        if(ytPlayer){try{ytPlayer.destroy();}catch{}ytPlayer=null;}
+        watchYoutubePlayerEl.innerHTML='';
+        ytPlayer=new YT.Player('watchYoutubePlayer',{width:'100%',height:'100%',videoId:state.youtubeId,playerVars:{playsinline:1,rel:0,enablejsapi:1},events:{
+          onReady:e=>{try{if((state.currentTime||0)>0)e.target.seekTo(state.currentTime,true);if(state.isPlaying)e.target.playVideo();}catch{}lastWatchTime=state.currentTime||0;lastWatchPollAt=Date.now();},
+          onStateChange:e=>{if(remoteWatchApply)return;if(e.data===YT.PlayerState.PLAYING||e.data===YT.PlayerState.PAUSED||e.data===YT.PlayerState.ENDED)emitWatchSync(true);}
+        }});
+      }catch(err){watchStatus.textContent=err.message||'Could not load YouTube video.';}
+    }else applyRemotePlayback(state);
+  }else if(state.type==='mp4'){
+    watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.remove('hidden');
+    if(changed||!watchMp4Player.src){
+      lastWatchSignatureForMedia=signature;
+      if(mp4ObjectUrl){URL.revokeObjectURL(mp4ObjectUrl);mp4ObjectUrl=null;}
+      watchMp4Player.pause();watchMp4Player.removeAttribute('src');watchMp4Player.load();
+      try{
+        watchStatus.textContent='Loading shared MP4…';
+        const r=await fetch(`${SERVER_URL}/api/watch/video/${encodeURIComponent(state.videoId)}`,{headers:{Authorization:`Bearer ${token}`}});
+        if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Could not load MP4.');}
+        const blob=await r.blob();mp4ObjectUrl=URL.createObjectURL(blob);watchMp4Player.src=mp4ObjectUrl;watchMp4Player.load();
+        watchMp4Player.onloadedmetadata=()=>{try{watchMp4Player.currentTime=Math.max(0,state.currentTime||0);}catch{}if(state.isPlaying)watchMp4Player.play().catch(()=>{watchStatus.textContent='Tap Play to allow video playback on this device.';});};
+        watchStatus.textContent=`Now sharing: ${state.title||'MP4'} · controls are synchronized`;
+      }catch(err){watchStatus.textContent=err.message||'Could not load MP4.';}
+    }else applyRemotePlayback(state);
+  }
+  lastWatchTime=Number(state.currentTime)||0;lastWatchPollAt=Date.now();
+}
+let lastWatchSignatureForMedia='';
+watchYoutubeForm.addEventListener('submit',e=>{
+  e.preventDefault();const youtubeId=extractYoutubeId(watchYoutubeUrl.value);
+  if(!youtubeId||youtubeId.length!==11){watchStatus.textContent='Please paste a valid YouTube video link.';return;}
+  if(!socket.connected){watchStatus.textContent='Reconnect to the room before sharing a video.';return;}
+  socket.emit('watch:set',{type:'youtube',youtubeId,title:'YouTube video'},r=>{if(!r?.ok)watchStatus.textContent=r?.error||'Could not share video.';else watchStatus.textContent='YouTube link shared with the room.';});
+});
+watchFileInput.addEventListener('change',async()=>{
+  const file=watchFileInput.files?.[0];watchFileInput.value='';if(!file)return;
+  if(!socket.connected){watchStatus.textContent='Reconnect to the room before uploading.';return;}
+  if(!/\.mp4$/i.test(file.name)&&file.type!=='video/mp4'){watchStatus.textContent='Choose an MP4 file.';return;}
+  if(file.size>20*1024*1024){watchStatus.textContent='MP4 must be 20 MB or smaller.';return;}
+  try{
+    watchStatus.textContent='Uploading MP4…';
+    const r=await fetch(`${SERVER_URL}/api/watch/upload`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'video/mp4','X-Video-Name':encodeURIComponent(file.name)},body:file});
+    const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Upload failed.');
+    socket.emit('watch:set',{type:'mp4',videoId:data.videoId,title:data.title},ack=>{if(!ack?.ok)watchStatus.textContent=ack?.error||'Could not share uploaded video.';});
+  }catch(err){watchStatus.textContent=err.message||'MP4 upload failed.';}
+});
+$('watchStopBtn').onclick=()=>{if(!socket.connected)return;socket.emit('watch:stop');};
+watchMp4Player.addEventListener('play',()=>emitWatchSync(true));
+watchMp4Player.addEventListener('pause',()=>emitWatchSync(true));
+watchMp4Player.addEventListener('seeked',()=>emitWatchSync(true));
+watchMp4Player.addEventListener('loadedmetadata',()=>{lastWatchTime=watchMp4Player.currentTime||0;lastWatchPollAt=Date.now();});
+watchPoll=setInterval(()=>{
+  if(!watchState||document.hidden)return;
+  const now=Date.now(), data=watchSyncPayload();if(!data)return;
+  const elapsed=(now-lastWatchPollAt)/1000, expected=lastWatchTime+(data.isPlaying?elapsed:0);
+  const jumped=Math.abs(data.currentTime-expected)>2.2;
+  const periodic=data.isPlaying&&(now-lastWatchSyncAt)>5000;
+  if(!remoteWatchApply&&(jumped||periodic))emitWatchSync(true);
+  lastWatchTime=data.currentTime;lastWatchPollAt=now;
+},1500);
+socket.on('watch:state',state=>{applyWatchState(state);});
+socket.on('watch:sync',state=>{if(watchState&&state.type===watchState.type&&(state.youtubeId||'')===(watchState.youtubeId||'')&&(state.videoId||'')===(watchState.videoId||''))applyRemotePlayback(state);});
+socket.on('watch:cleared',()=>{
+  watchState=null;lastWatchSignatureForMedia='';lastWatchSignature='';watchEmpty.classList.remove('hidden');watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.add('hidden');watchStatus.textContent='Video stopped for everyone.';
+  try{ytPlayer?.destroy();}catch{}ytPlayer=null;watchYoutubePlayerEl.innerHTML='';watchMp4Player.pause();watchMp4Player.removeAttribute('src');watchMp4Player.load();if(mp4ObjectUrl){URL.revokeObjectURL(mp4ObjectUrl);mp4ObjectUrl=null;}
+});
+
 socket.on('connect_error',e=>console.error(e.message));
 socket.on('message:new',item=>{addMessage(item);notifyIncoming(item);});
 socket.on('system:message',t=>{addSystem(t);if(document.hidden && notificationsEnabled){try{new Notification('ChatApp',{body:t});}catch{}}});
