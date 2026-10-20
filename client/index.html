@@ -32,6 +32,7 @@
       <div class="room-info"><h1>💬 <span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
       <div class="top-actions">
         <button id="usersToggle" class="secondary mobile-only" type="button">👥 <span id="mobileOnlineCount">0</span></button>
+        <button id="watchOpenBtn" class="secondary watch-open-btn" type="button">🎬 Watch</button>
         <button id="leaveBtn" class="secondary">Leave</button>
       </div>
     </header>
@@ -58,6 +59,31 @@
       <img id="viewerImage" alt="Shared image">
     </div>
     </section>
+    <section id="watchModal" class="watch-modal hidden" role="dialog" aria-modal="true" aria-labelledby="watchHeading">
+      <div class="watch-card">
+        <header class="watch-header">
+          <div><h2 id="watchHeading">🎬 Watch Together</h2><p>Paste a YouTube link or share an MP4 (max 20 MB).</p></div>
+          <button id="watchCloseBtn" class="secondary" type="button" aria-label="Close Watch Together">✕</button>
+        </header>
+        <form id="watchYoutubeForm" class="watch-link-form">
+          <input id="watchYoutubeUrl" type="url" placeholder="Paste YouTube video link" autocomplete="url" aria-label="YouTube video link">
+          <button type="submit">Share link</button>
+        </form>
+        <div class="watch-upload-row">
+          <label class="watch-file-label" for="watchFileInput">📁 Choose MP4</label>
+          <input id="watchFileInput" type="file" accept="video/mp4,.mp4,video/quicktime" hidden>
+          <span id="watchStatus" role="status">Everyone in this room can control playback.</span>
+          <button id="watchStopBtn" class="secondary" type="button">Stop video</button>
+        </div>
+        <div id="watchPlayerShell" class="watch-player-shell">
+          <div id="watchEmpty" class="watch-empty"><span>▶</span><strong>No shared video yet</strong><small>Share a YouTube link or choose an MP4 to start watching together.</small></div>
+          <div id="watchYoutubeHost" class="watch-media hidden"><div id="watchYoutubePlayer"></div></div>
+          <video id="watchMp4Player" class="watch-media hidden" controls playsinline preload="metadata"></video>
+        </div>
+        <div class="watch-footnote">Playback is synchronized for room members. Some YouTube videos do not allow embedding. MP4 uploads are stored in the room database and limited to 20 MB.</div>
+      </div>
+    </section>
+
     <div id="callPanel" class="call-panel hidden">
       <div class="call-head"><span id="callTitle">Call</span><button id="closeCall" type="button">✕</button></div>
       <div class="call-videos">
