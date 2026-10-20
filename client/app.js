@@ -12,7 +12,7 @@ let notificationsEnabled=false;
 const sidebar=$('sidebar'), usersToggle=$('usersToggle'), sidebarOverlay=$('sidebarOverlay');
 let peer=null, localStream=null, callPeerId=null, callKind='video', incomingOffer=null;
 const pendingIce=[], typingUsers=new Set();
-const emojis=['😀','😂','🤣','😊','😍','😘','😎','🤔','😢','😭','😡','👍','👎','👏','🙏','❤️','🔥','🎉','💯','😴','🤝','👌','🥳','😇','🙌'];
+const emojis=['😀','😂','🤣','😊','😍','😘','😎','🤔','😢','😭','😡','👍','👎','👏','🙏','❤️','🔥','🎉','💯','😴','🤝','👌','🥳','😇','🙌','🤑'];
 const MAX_IMAGE_DATA=700000;
 
 function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
