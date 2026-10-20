@@ -131,7 +131,7 @@ joinForm.addEventListener('submit',async e=>{
     requestNotifications();
     data.messages.forEach(addMessage);
     socket.auth={token};socket.connect();
-    joinView.classList.add('hidden');chatView.classList.remove('hidden');openWatch();messageInput.focus();
+    joinView.classList.add('hidden');chatView.classList.remove('hidden');messageInput.focus();
   }catch(err){joinError.textContent=err.message;}
 });
 
