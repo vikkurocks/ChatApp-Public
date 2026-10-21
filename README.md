@@ -38,7 +38,7 @@ A lightweight, room-based real-time chat app for devices connected to the same W
 ## Run locally
 
 1. Extract the project ZIP.
-2. Open a terminal in the `callfix` folder (the folder containing `package.json`).
+2. Open a terminal in the `ChatApp-Public` folder (the folder containing `package.json`).
 3. Install dependencies:
 
    ```bash
