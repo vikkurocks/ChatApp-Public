@@ -71,6 +71,9 @@ const io = new Server(server, {
 // Keep a short reconnect grace period so brief mobile-network drops do not
 // immediately remove a user from the room or delete their DB row.
 const disconnectTimers = new Map();
+// Brief reservation prevents simultaneous join requests from claiming one name.
+const joinReservations = new Map();
+const JOIN_RESERVATION_MS = 20000;
 const RECONNECT_GRACE_MS = 30000;
 
 function onlineUsersForRoom(room) {
@@ -193,8 +196,10 @@ app.get("/config", (_req, res) => {
 });
 
 app.post("/api/join", joinLimiter, async (req, res) => {
+  let reservationKey = null;
+  let reservation = null;
   try {
-    const name = cleanName(req.body?.name);
+    let name = cleanName(req.body?.name);
     const room = cleanRoom(req.body?.room);
     const password = String(req.body?.password || "");
 
@@ -205,32 +210,58 @@ app.post("/api/join", joinLimiter, async (req, res) => {
     }
 
     const existing = await pool.query("SELECT id, password_hash FROM rooms WHERE id=$1", [room]);
-    let userId;
-
     if (existing.rowCount === 0) {
       const passwordHash = await bcrypt.hash(password, 12);
-      await pool.query(
-        "INSERT INTO rooms(id,password_hash) VALUES($1,$2)",
-        [room, passwordHash]
-      );
+      await pool.query("INSERT INTO rooms(id,password_hash) VALUES($1,$2)", [room, passwordHash]);
     } else {
       const ok = await bcrypt.compare(password, existing.rows[0].password_hash);
       if (!ok) return res.status(401).json({ error: "Wrong room password." });
     }
 
+    reservationKey = `${room.toLowerCase()}\\u0000${name.toLowerCase()}`;
+    const currentReservation = joinReservations.get(reservationKey);
+    if (currentReservation && currentReservation.expiresAt > Date.now()) {
+      return res.status(409).json({ error: "This username is just joining the room. Please wait a moment and try again." });
+    }
+    reservation = { expiresAt: Date.now() + JOIN_RESERVATION_MS, userId: null };
+    joinReservations.set(reservationKey, reservation);
+
     const sameName = await pool.query(
-      "SELECT id FROM users WHERE room_id=$1 AND LOWER(name)=LOWER($2)",
+      "SELECT id, name FROM users WHERE room_id=$1 AND LOWER(name)=LOWER($2) ORDER BY created_at ASC",
       [room, name]
     );
-    if (sameName.rowCount > 0) {
-      return res.status(409).json({ error: "That username is already in this room." });
-    }
 
-    userId = crypto.randomUUID();
-    await pool.query(
-      "INSERT INTO users(id,room_id,name) VALUES($1,$2,$3)",
-      [userId, room, name]
-    );
+    let userId;
+    if (sameName.rowCount > 0) {
+      // Rows may outlive a browser tab that closed before Socket.IO connected.
+      // Reject only if that identity has a live socket; otherwise reuse its ID
+      // so historical messages and foreign-key references remain intact.
+      const connectedIds = new Set(
+        [...io.sockets.sockets.values()]
+          .filter(s => s.data?.room === room && s.data?.userId)
+          .map(s => s.data.userId)
+      );
+      const activeMatch = sameName.rows.find(row => connectedIds.has(row.id));
+      if (activeMatch) {
+        if (joinReservations.get(reservationKey) === reservation) joinReservations.delete(reservationKey);
+        reservation = null;
+        return res.status(409).json({ error: "That username is already in this room." });
+      }
+
+      const staleUser = sameName.rows[0];
+      userId = staleUser.id;
+      name = staleUser.name;
+      const reconnectTimer = disconnectTimers.get(userId);
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        disconnectTimers.delete(userId);
+      }
+      await pool.query("UPDATE users SET name=$2 WHERE id=$1", [userId, name]);
+    } else {
+      userId = crypto.randomUUID();
+      await pool.query("INSERT INTO users(id,room_id,name) VALUES($1,$2,$3)", [userId, room, name]);
+    }
+    reservation.userId = userId;
 
     const messages = await pool.query(`
       SELECT id, name, text, message_type, reply_to_id, reply_to_name, reply_to_text, deleted, created_at
@@ -241,7 +272,6 @@ app.post("/api/join", joinLimiter, async (req, res) => {
     `, [room]);
 
     await pool.query("UPDATE rooms SET last_active_at=NOW() WHERE id=$1", [room]);
-
     const token = tokenFor({ sub: userId, room, name });
 
     res.json({
@@ -264,6 +294,9 @@ app.post("/api/join", joinLimiter, async (req, res) => {
       }))
     });
   } catch (err) {
+    if (reservationKey && reservation && joinReservations.get(reservationKey) === reservation) {
+      joinReservations.delete(reservationKey);
+    }
     console.error(err);
     res.status(500).json({ error: "Server error." });
   }
@@ -331,6 +364,11 @@ io.use((socket, next) => {
 
 io.on("connection", async socket => {
   const { sub: userId, room, name } = socket.user;
+  const reservationKey = `${room.toLowerCase()}\\u0000${name.toLowerCase()}`;
+  const pendingReservation = joinReservations.get(reservationKey);
+  if (pendingReservation && pendingReservation.userId === userId) {
+    joinReservations.delete(reservationKey);
+  }
   const reconnectTimer = disconnectTimers.get(userId);
   const isReconnecting = Boolean(reconnectTimer);
   if (reconnectTimer) clearTimeout(reconnectTimer);
