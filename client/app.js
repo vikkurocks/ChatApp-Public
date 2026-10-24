@@ -121,18 +121,64 @@ function updateTyping(){const n=[...typingUsers];typingIndicator.textContent=n.l
 function renderEmojis(){emojiPicker.innerHTML='';emojis.forEach(e=>{const b=document.createElement('button');b.className='emoji';b.type='button';b.textContent=e;b.onclick=()=>{messageInput.value+=e;messageInput.focus();};emojiPicker.appendChild(b);});}
 
 joinForm.addEventListener('submit',async e=>{
-  e.preventDefault(); joinError.textContent='';
+  e.preventDefault();
+  joinError.textContent='';
   const name=$('name').value.trim(), room=$('room').value.trim(), password=$('password').value;
-  if(!SERVER_URL || SERVER_URL.includes('REPLACE-WITH')){joinError.textContent='Set your backend URL in config.js first.';return;}
+  if(!SERVER_URL || SERVER_URL.includes('REPLACE-WITH')){
+    joinError.textContent='Set your backend URL in config.js first.';
+    return;
+  }
+
+  const loading=$('joinLoading');
+  const submitButton=joinForm.querySelector('button[type="submit"]');
+  const originalButtonText=submitButton?.textContent||'Join / Create Room';
+  if(loading){
+    loading.classList.remove('hidden');
+    loading.setAttribute('aria-hidden','false');
+  }
+  if(submitButton){
+    submitButton.disabled=true;
+    submitButton.textContent='Connecting…';
+  }
+
   try{
-    const r=await fetch(`${SERVER_URL}/api/join`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,room,password})});
-    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not join.');
-    token=data.token;myName=data.user.name;roomTitle.textContent=data.room;const roomMark=document.getElementById('roomMark');if(roomMark){roomMark.textContent=data.room.trim().slice(0,8);roomMark.title=data.room;}messages.innerHTML='';
+    const r=await fetch(`${SERVER_URL}/api/join`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,room,password})
+    });
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not join.');
+
+    token=data.token;
+    myName=data.user.name;
+    roomTitle.textContent=data.room;
+    const roomMark=document.getElementById('roomMark');
+    if(roomMark){
+      roomMark.textContent=data.room.trim().slice(0,8);
+      roomMark.title=data.room;
+    }
+    messages.innerHTML='';
     requestNotifications();
     data.messages.forEach(addMessage);
-    socket.auth={token};socket.connect();
-    joinView.classList.add('hidden');chatView.classList.remove('hidden');openWatch();messageInput.focus();
-  }catch(err){joinError.textContent=err.message;}
+    socket.auth={token};
+    socket.connect();
+    joinView.classList.add('hidden');
+    chatView.classList.remove('hidden');
+    openWatch();
+    messageInput.focus();
+  }catch(err){
+    joinError.textContent=err.message||'Could not join the room.';
+  }finally{
+    if(loading){
+      loading.classList.add('hidden');
+      loading.setAttribute('aria-hidden','true');
+    }
+    if(submitButton){
+      submitButton.disabled=false;
+      submitButton.textContent=originalButtonText;
+    }
+  }
 });
 
 messageForm.addEventListener('submit',e=>{
