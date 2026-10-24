@@ -12,7 +12,7 @@ let notificationsEnabled=false;
 const sidebar=$('sidebar'), usersToggle=$('usersToggle'), sidebarOverlay=$('sidebarOverlay');
 let peer=null, localStream=null, callPeerId=null, callKind='video', incomingOffer=null;
 const pendingIce=[], typingUsers=new Set();
-const emojis=['😀','😂','🤣','😊','😍','😘','😎','🤔','😢','😭','😡','👍','👎','👏','🙏','❤️','🔥','🎉','💯','😴','🤝','👌','🥳','😇','🙌','🤑'];
+const emojis=['😀','😂','🤣','😊','😍','😘','😎','🤔','😢','😭','😡','👍','👎','👏','🙏','❤️','🔥','🎉','💯','😴','🤝','👌','🥳','😇','🙌'];
 const MAX_IMAGE_DATA=700000;
 
 function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
@@ -127,11 +127,11 @@ joinForm.addEventListener('submit',async e=>{
   try{
     const r=await fetch(`${SERVER_URL}/api/join`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,room,password})});
     const data=await r.json(); if(!r.ok)throw new Error(data.error||'Could not join.');
-    token=data.token;myName=data.user.name;roomTitle.textContent=data.room;messages.innerHTML='';
+    token=data.token;myName=data.user.name;roomTitle.textContent=data.room;const roomMark=document.getElementById('roomMark');if(roomMark){roomMark.textContent=data.room.trim().slice(0,8);roomMark.title=data.room;}messages.innerHTML='';
     requestNotifications();
     data.messages.forEach(addMessage);
     socket.auth={token};socket.connect();
-    joinView.classList.add('hidden');chatView.classList.remove('hidden');messageInput.focus();
+    joinView.classList.add('hidden');chatView.classList.remove('hidden');openWatch();messageInput.focus();
   }catch(err){joinError.textContent=err.message;}
 });
 
