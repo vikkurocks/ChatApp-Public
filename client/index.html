@@ -36,7 +36,7 @@
         <button type="submit">↪ &nbsp; Join / Create Room</button>
         <p id="joinError" class="error"></p>
       </form>
-      <div class="note"><span>⬡</span><div><strong>Your  is protected by a password</strong><small>Use a strong password and don't share it publicly.</small></div></div>
+      <div class="note"><span>⬡</span><div><strong>Your room is protected by a password</strong><small>Use a strong password and don't share it publicly.</small></div></div>
     </section>
   </section>
   <section id="chatView" class="chat-layout hidden">
@@ -107,6 +107,13 @@
     </div>
   </section>
 </main>
+<div id="joinLoading" class="join-loading hidden" role="status" aria-live="polite" aria-hidden="true">
+  <div class="join-loading-card">
+    <div class="join-loading-spinner" aria-hidden="true"></div>
+    <strong>Joining your room</strong>
+    <span>Please wait while we connect you securely…</span>
+  </div>
+</div>
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
