@@ -13,7 +13,11 @@ const { Server } = require("socket.io");
 
 const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN;
+// Accept one or more frontend origins separated by commas in Render's CLIENT_ORIGIN.
+const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map(origin => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   throw new Error("JWT_SECRET must be set and be at least 32 characters.");
@@ -21,8 +25,8 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required.");
 }
-if (!CLIENT_ORIGIN) {
-  throw new Error("CLIENT_ORIGIN is required.");
+if (CLIENT_ORIGINS.length === 0) {
+  throw new Error("CLIENT_ORIGIN is required. Add one or more frontend origins separated by commas.");
 }
 
 const app = express();
@@ -37,11 +41,22 @@ app.set("trust proxy", 1);
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-app.use(cors({
-  origin: CLIENT_ORIGIN,
-  methods: ["GET", "POST"],
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow requests without an Origin header (e.g. health checks/server-to-server).
+    if (!origin) return callback(null, true);
+
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (CLIENT_ORIGINS.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Origin not allowed by CORS: " + normalizedOrigin));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
   credentials: false
-}));
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 
 const joinLimiter = rateLimit({
@@ -59,7 +74,7 @@ const messageLimiter = rateLimit({
 
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_ORIGIN,
+    origin: CLIENT_ORIGINS,
     methods: ["GET", "POST"]
   },
   // Allow mobile networks a little room before treating a client as gone.
