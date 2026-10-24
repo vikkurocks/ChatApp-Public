@@ -238,3 +238,104 @@ body{background-image:linear-gradient(180deg,#03060935,#03060975),url("assets/ch
 @media(max-width:1050px){.login-screen{grid-template-columns:minmax(180px,.8fr) minmax(320px,430px);gap:18px;padding:24px}.login-toplinks{display:none}.login-features{gap:20px}.chat-layout.watch-visible{grid-template-columns:minmax(180px,21%) minmax(260px,1fr) minmax(280px,36%)}}
 @media(max-width:760px){.app{padding:0}.login-screen{width:100%;min-height:100dvh;border:0;border-radius:0;padding:22px 16px;display:flex;flex-direction:column;align-items:stretch;gap:20px;overflow:auto}.login-visual{min-height:230px;flex:none}.login-brand h1{font-size:29px}.login-logo{width:50px;height:46px}.login-features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:30px;max-width:none}.feature{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:9px 7px;border:1px solid #2a241b;background:#0b0e12d9;border-radius:13px}.feature-icon{width:36px;height:36px;border-radius:11px;font-size:19px}.feature strong{font-size:10px}.feature small{font-size:10px;line-height:1.35}.login-slogan{font-size:25px;margin-bottom:5px}.login-footer{margin-top:0;padding-top:6px}.join-card{max-width:none;padding:21px;border-radius:20px}.form-heading h2{font-size:20px}.chat-layout{width:100%;height:100dvh;border-radius:0;border:0;grid-template-columns:1fr;grid-template-rows:62px minmax(0,1fr);gap:0}.topbar{grid-column:1;padding:9px 10px;min-height:62px;border-radius:0;border-left:0;border-right:0}.topbar h1{font-size:16px}.top-actions{gap:5px}.top-actions #leaveBtn{padding:8px 10px}.sidebar{top:62px;border-radius:0 0 16px 0}.chat-layout.watch-visible{grid-template-columns:minmax(0,1fr);grid-template-rows:62px minmax(160px,35dvh) minmax(0,1fr);gap:0}.chat-layout.watch-visible>.topbar{grid-column:1;grid-row:1}.chat-layout.watch-visible>.sidebar{display:none}.chat-layout.watch-visible>.chat{grid-column:1;grid-row:3;border-radius:0;border-left:0;border-right:0}.chat-layout.watch-visible>#watchModal{grid-column:1;grid-row:2;padding:5px 8px;border:0;border-bottom:1px solid #282d33;border-radius:0;box-shadow:none}.chat-layout.watch-visible .watch-card{padding:6px 2px;border:0;border-radius:0;gap:5px}.chat-layout.watch-visible .watch-header h2{font-size:14px}.chat-layout.watch-visible .watch-header p{display:none}.chat-layout.watch-visible .watch-link-form{gap:5px}.chat-layout.watch-visible .watch-link-form input{padding:8px;font-size:12px}.chat-layout.watch-visible .watch-link-form button{padding:8px;font-size:11px}.chat-layout.watch-visible .watch-upload-row{gap:5px;flex-wrap:nowrap}.chat-layout.watch-visible .watch-file-label{padding:7px;font-size:10px;white-space:nowrap}.chat-layout.watch-visible .watch-upload-row #watchStatus{font-size:10px;line-height:1.2}.chat-layout.watch-visible .watch-upload-row #watchStopBtn{padding:7px;font-size:10px}.chat-layout.watch-visible .watch-player-shell{min-height:0;aspect-ratio:16/9;max-height:calc(35dvh - 100px)}.chat-layout.watch-visible .watch-footnote{display:none}.call-panel{padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))}}
 @media(max-width:390px){.login-screen{padding:19px 12px;gap:16px}.login-visual{min-height:215px}.login-features{gap:5px}.feature{padding:8px 5px}.feature strong{font-size:9px}.join-card{padding:17px}.chat-layout.watch-visible{grid-template-rows:62px minmax(150px,34dvh) minmax(0,1fr)}.chat-layout.watch-visible .watch-upload-row #watchStopBtn{display:none}}
+
+
+/* Viewport fit fix: prevent desktop login page from creating page-level scrollbars. */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+@media (min-width: 761px) {
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    min-height: 0;
+  }
+  .app {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    padding: 16px;
+    overflow: hidden;
+    place-items: center;
+  }
+  .login-screen {
+    width: min(1600px, 100%);
+    height: calc(100dvh - 32px);
+    min-height: 0;
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+    align-self: center;
+  }
+  /* Keep the form and the left-side content inside shorter laptop windows. */
+  @media (max-height: 800px) {
+    .login-screen {
+      padding: 20px clamp(20px, 2.4vw, 36px);
+      gap: clamp(14px, 2vw, 30px);
+    }
+    .login-features {
+      margin-top: clamp(28px, 7vh, 58px);
+      gap: clamp(12px, 3vh, 24px);
+    }
+    .feature-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      font-size: 23px;
+    }
+    .login-slogan {
+      font-size: clamp(23px, 2.5vw, 32px);
+      margin-bottom: 16px;
+    }
+    .join-card {
+      padding: clamp(16px, 2vh, 24px);
+    }
+    .form-heading {
+      margin-bottom: 12px;
+    }
+    .form-wave {
+      width: 38px;
+      height: 38px;
+    }
+    .join-card label {
+      margin-top: 11px;
+      margin-bottom: 6px;
+    }
+    .join-card input {
+      height: 44px;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    .join-card button[type="submit"] {
+      min-height: 46px;
+      margin-top: 15px;
+    }
+    .join-card .note {
+      margin-top: 12px;
+      padding: 10px;
+    }
+  }
+}
+/* Mobile login form remains vertically scrollable when content exceeds the screen. */
+@media (max-width: 760px) {
+  html, body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+  .app {
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+  }
+  .login-screen {
+    min-height: 100dvh;
+    height: auto;
+    max-height: none;
+  }
+}
