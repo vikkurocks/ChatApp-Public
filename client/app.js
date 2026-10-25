@@ -28,21 +28,43 @@ function showToast(name, text){
 }
 function requestNotifications(){
   if(!('Notification' in window)) return;
-  if(Notification.permission==='granted'){notificationsEnabled=true;return;}
+  if(Notification.permission==='granted'){
+    notificationsEnabled=true;
+    return;
+  }
   if(Notification.permission==='default'){
-    Notification.requestPermission().then(p=>{notificationsEnabled=p==='granted';}).catch(()=>{});
+    // Called from the user's Join button flow so browsers can show the permission prompt.
+    Notification.requestPermission().then(p=>{
+      notificationsEnabled=p==='granted';
+    }).catch(()=>{notificationsEnabled=false;});
+  }
+}
+function showSystemNotification(title, body, tag='chatapp-message'){
+  if(!('Notification' in window) || Notification.permission!=='granted' || !document.hidden) return;
+  notificationsEnabled=true;
+  try{
+    // The browser/OS uses the user's normal notification settings and default sound, if enabled.
+    const n=new Notification(title,{
+      body,
+      icon:'assets/icons/chatapp-icon-192.png',
+      badge:'assets/icons/chatapp-icon-192.png',
+      tag,
+      renotify:true
+    });
+    n.onclick=()=>{
+      try{window.focus();}catch{}
+      n.close();
+    };
+  }catch(err){
+    // Notifications may be unavailable in some browser modes or when permission is blocked.
+    console.debug('System notification unavailable:',err);
   }
 }
 function notifyIncoming(item){
   if(item.name===myName)return;
   const preview=item.type==='image'?'📷 Sent an image':(item.text||'New message');
   showToast(item.name,preview);
-  if(document.hidden && notificationsEnabled){
-    try{
-      const n=new Notification(item.name,{body:preview,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%231687f4"/><text x="32" y="43" font-size="34" text-anchor="middle">💬</text></svg>'});
-      n.onclick=()=>{window.focus();n.close();};
-    }catch{}
-  }
+  showSystemNotification(item.name,preview,`chatapp-${item.id||Date.now()}`);
 }
 
 function replyPreview(i){
@@ -382,7 +404,7 @@ socket.on('watch:cleared',()=>{
 
 socket.on('connect_error',e=>console.error(e.message));
 socket.on('message:new',item=>{addMessage(item);notifyIncoming(item);});
-socket.on('system:message',t=>{addSystem(t);if(document.hidden && notificationsEnabled){try{new Notification('ChatApp',{body:t});}catch{}}});
+socket.on('system:message',t=>{addSystem(t);showSystemNotification('ChatApp',t,`chatapp-system-${Date.now()}`);});
 socket.on('users:update',renderUsers);
 socket.on('message:deleted',({id})=>{
   const el=messages.querySelector(`[data-id="${CSS.escape(id)}"]`);if(!el)return;
