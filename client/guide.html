@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080706">
+  <title>How to use ChatApp</title>
+  <link rel="icon" href="assets/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/chatapp-icon-32.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .guide-page{min-height:100dvh;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .guide-page-inner{width:min(920px,100%);border:1px solid #6b5232;border-radius:24px;background:linear-gradient(145deg,#0c1015f5,#050709f5);box-shadow:0 28px 90px #0009;padding:clamp(20px,4vw,42px)}
+    .guide-page-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:28px}
+    .guide-page-brand{display:flex;align-items:center;gap:12px}
+    .guide-page-mark{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(145deg,#ffe6b4,#ffb94f);color:#17100a;font-weight:900}
+    .guide-page-brand h1{margin:0;font-size:clamp(24px,4vw,36px);color:#fff}
+    .guide-page-brand h1 span{color:#ffc56c}
+    .guide-page-brand p{margin:3px 0 0;color:#9aa8b8;font-size:12px}
+    .guide-back{display:inline-flex;align-items:center;gap:8px;text-decoration:none;border:1px solid #344555;background:#132332;color:#f4f6f8;border-radius:12px;padding:11px 14px;font-weight:700;font-size:13px;white-space:nowrap}
+    .guide-page-kicker{font-size:10px;letter-spacing:.2em;font-weight:800;color:#ffc56c}
+    .guide-page-title{font-size:clamp(25px,4vw,38px);line-height:1.15;margin:8px 0;color:#f8f4ec}
+    .guide-page-intro{color:#9ba8b8;line-height:1.6;font-size:14px;max-width:620px;margin:0 0 24px}
+    .guide-page-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .guide-page-item{display:flex;gap:13px;align-items:flex-start;padding:17px;border:1px solid #2a3038;border-radius:16px;background:#090d12}
+    .guide-page-num{flex:0 0 38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#21180d;border:1px solid #4c3820;color:#ffc56c;font-weight:900}
+    .guide-page-item h2{font-size:15px;margin:2px 0 6px;color:#f4f5f7}
+    .guide-page-item p{margin:0;color:#a0adbc;font-size:12px;line-height:1.65}
+    .guide-tip{margin-top:16px;border:1px solid #493821;border-radius:14px;padding:14px;color:#b7c2ce;font-size:12px;line-height:1.6;background:#100d09}
+    .guide-tip strong{color:#ffd28a}
+    .guide-credit{margin-top:20px;text-align:center;color:#929aa5;font-size:12px}
+    .guide-credit span{color:#ffc56c;padding:0 3px}
+    .guide-credit strong{color:#f1d7a8}
+    @media(max-width:600px){.guide-page{padding:12px}.guide-page-inner{padding:18px;border-radius:18px}.guide-page-top{align-items:flex-start;margin-bottom:22px}.guide-back{padding:9px 10px;font-size:12px}.guide-page-grid{grid-template-columns:1fr;gap:9px}.guide-page-item{padding:13px}.guide-page-intro{font-size:13px}}
+  </style>
+</head>
+<body>
+  <main class="guide-page">
+    <section class="guide-page-inner">
+      <header class="guide-page-top">
+        <div class="guide-page-brand">
+          <div class="guide-page-mark" aria-hidden="true">●●●</div>
+          <div><h1>Chat<span>App</span></h1><p>Real Conversations • No Limits</p></div>
+        </div>
+        <a class="guide-back" href="./">← Back to ChatApp</a>
+      </header>
+      <span class="guide-page-kicker">QUICK GUIDE</span>
+      <h2 class="guide-page-title">Make the most of ChatApp.</h2>
+      <p class="guide-page-intro">A private room for real-time conversations, sharing moments and watching videos together. Follow these steps to get started.</p>
+      <div class="guide-page-grid">
+        <article class="guide-page-item"><span class="guide-page-num">01</span><div><h2>Create or join a room</h2><p>Enter your username, room name and a password of at least 8 characters. Friends should enter the same room name and password to join your room.</p></div></article>
+        <article class="guide-page-item"><span class="guide-page-num">02</span><div><h2>Chat and share</h2><p>Send real-time messages, reply to a message, use emojis and share images. Use a username that your friends can recognize.</p></div></article>
+        <article class="guide-page-item"><span class="guide-page-num">03</span><div><h2>Watch Together</h2><p>Open Watch inside the room and share a supported YouTube link. Playback controls are synchronized with room members. MP4 upload availability depends on server storage configuration.</p></div></article>
+        <article class="guide-page-item"><span class="guide-page-num">04</span><div><h2>Voice and video calls</h2><p>Start a call with a room member. Allow microphone and camera permissions when your browser asks, and keep a stable network connection.</p></div></article>
+      </div>
+      <div class="guide-tip"><strong>Privacy tip:</strong> Share your room name and password only with people you want to invite. For calls, use ChatApp over HTTPS and allow camera/microphone access.</div>
+    </section>
+    <footer class="guide-credit">Made with <span aria-label="love">♥</span> by <strong>Vikas &amp; Shivam</strong></footer>
+  </main>
+</body>
+</html>
