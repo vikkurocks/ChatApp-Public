@@ -1,0 +1,24 @@
+{
+  "name": "ChatApp",
+  "short_name": "ChatApp",
+  "description": "Private real-time conversations with ChatApp",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080706",
+  "theme_color": "#080706",
+  "icons": [
+    {
+      "src": "assets/icons/chatapp-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/chatapp-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
