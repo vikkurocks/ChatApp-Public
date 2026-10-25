@@ -418,3 +418,30 @@ html, body {
   .login-screen{grid-template-rows:minmax(0,1fr) auto}
   .login-guide{max-width:100%}
 }
+
+
+/* Login guide link: keep the join form compact */
+.open-guide-btn{
+  display:flex;align-items:center;gap:12px;margin-top:15px;padding:13px 14px;
+  border:1px solid #493821;border-radius:14px;
+  background:linear-gradient(145deg,#11151a,#080b0f);
+  color:#f7f4ef;text-decoration:none;transition:border-color .18s,transform .18s;
+}
+.open-guide-btn:hover{border-color:#ffc56c;transform:translateY(-1px)}
+.open-guide-icon{flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;
+  border-radius:11px;background:#21180d;border:1px solid #4c3820;color:#ffc56c;font-size:18px}
+.open-guide-btn strong{display:block;font-size:13px}
+.open-guide-btn small{display:block;margin-top:4px;color:#9ba8b8;font-size:11px;line-height:1.4}
+.open-guide-arrow{margin-left:auto;color:#ffc56c;font-size:20px}
+.creator-footer{position:absolute;left:0;right:0;bottom:12px;z-index:4;text-align:center;
+  color:#929aa5;font-size:12px;letter-spacing:.02em;pointer-events:none}
+.creator-footer span{color:#ffc56c;padding:0 3px;text-shadow:0 0 12px #ffc56c55}
+.creator-footer strong{color:#f1d7a8;font-weight:700}
+@media(max-width:760px){
+  .creator-footer{position:static;padding:12px 0 5px;width:100%;font-size:12px}
+  .login-screen{display:flex;flex-direction:column;align-items:stretch}
+  .join-card{margin-bottom:0}
+}
+@media(min-width:761px){
+  .join-card{margin-bottom:20px}
+}
