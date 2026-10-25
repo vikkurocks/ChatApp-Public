@@ -393,18 +393,60 @@ socket.on('message:deleted',({id})=>{
 socket.on('typing',({name,isTyping})=>{if(name===myName)return;isTyping?typingUsers.add(name):typingUsers.delete(name);updateTyping();});
 renderEmojis();
 
-/* Calls kept intact; media reliability can be improved later with TURN. */
+/* WebRTC calls: tolerate brief network transitions and explicitly start remote playback. */
 const callPanel=$('callPanel'),callTitle=$('callTitle'),remoteVideo=$('remoteVideo'),localVideo=$('localVideo'),audioOnly=$('audioOnly'),incomingActions=$('incomingActions'),activeActions=$('activeActions');
+let callDisconnectTimer=null;
 function showCall(title,incoming=false){callTitle.textContent=title;callPanel.classList.remove('hidden');incomingActions.classList.toggle('hidden',!incoming);activeActions.classList.toggle('hidden',incoming);}
 function closePanel(){if(callPeerId)socket.emit('call:end',{to:callPeerId});cleanup();}
-async function getMedia(kind){if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera/microphone unavailable. Use HTTPS.');return navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'});}
-async function getIceServers(){try{const r=await fetch(`${SERVER_URL}/config`);return (await r.json()).iceServers;}catch{return [{urls:'stun:stun.l.google.com:19302'}];}}
+async function getMedia(kind){if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera/microphone unavailable. Open ChatApp over HTTPS and allow camera/microphone permissions.');return navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'});}
+async function getIceServers(){
+  try {
+    const r=await fetch(`${SERVER_URL}/config`);
+    if(!r.ok)throw new Error('ICE config unavailable');
+    const data=await r.json();
+    if(Array.isArray(data.iceServers)&&data.iceServers.length)return data.iceServers;
+  } catch(e) { console.warn('Using fallback STUN server:',e); }
+  return [{urls:'stun:stun.l.google.com:19302'}];
+}
+async function playRemoteVideo(){
+  if(!remoteVideo.srcObject)return;
+  try { await remoteVideo.play(); } catch(e) { console.warn('Remote video autoplay was blocked:',e); }
+}
 async function makePeer(target){
   peer=new RTCPeerConnection({iceServers:await getIceServers()});
-  peer.onicecandidate=e=>e.candidate&&socket.emit('call:ice',{to:target,candidate:e.candidate});
-  peer.ontrack=e=>{remoteVideo.srcObject=e.streams[0];};
-  peer.onconnectionstatechange=()=>{if(['failed','closed','disconnected'].includes(peer.connectionState))cleanup();};
-  localStream?.getTracks().forEach(t=>peer.addTrack(t,localStream));return peer;
+  peer.onicecandidate=e=>{if(e.candidate)socket.emit('call:ice',{to:target,candidate:e.candidate});};
+  peer.ontrack=e=>{
+    if(e.streams&&e.streams[0]) remoteVideo.srcObject=e.streams[0];
+    else {
+      if(!remoteVideo.srcObject)remoteVideo.srcObject=new MediaStream();
+      if(!remoteVideo.srcObject.getTracks().some(t=>t.id===e.track.id))remoteVideo.srcObject.addTrack(e.track);
+    }
+    playRemoteVideo();
+  };
+  peer.onconnectionstatechange=()=>{
+    if(!peer)return;
+    const state=peer.connectionState;
+    if(state==='connected'){
+      if(callDisconnectTimer){clearTimeout(callDisconnectTimer);callDisconnectTimer=null;}
+      callTitle.textContent='Connected';
+    } else if(state==='failed'){
+      callTitle.textContent='Connection failed — check network/TURN settings';
+      // Keep the panel open so the user can see the failure and end the call.
+    } else if(state==='disconnected'){
+      // Mobile networks briefly report disconnected while switching Wi-Fi/data.
+      if(callDisconnectTimer)clearTimeout(callDisconnectTimer);
+      callDisconnectTimer=setTimeout(()=>{
+        if(peer&&peer.connectionState==='disconnected')callTitle.textContent='Connection interrupted — network may need TURN';
+      },10000);
+    } else if(state==='closed'&&callDisconnectTimer){
+      clearTimeout(callDisconnectTimer);callDisconnectTimer=null;
+    }
+  };
+  peer.oniceconnectionstatechange=()=>{
+    if(peer&&peer.iceConnectionState==='failed')callTitle.textContent='ICE connection failed — TURN may be required';
+  };
+  localStream?.getTracks().forEach(t=>peer.addTrack(t,localStream));
+  return peer;
 }
 async function startCall(id,name,kind){
   closeUsers();if(peer){alert('Already on a call.');return;}callPeerId=id;callKind=kind;
@@ -416,8 +458,17 @@ $('rejectCall').onclick=()=>{if(callPeerId)socket.emit('call:reject',{to:callPee
 $('endCall').onclick=closePanel;$('closeCall').onclick=closePanel;
 $('toggleMic').onclick=()=>{const t=localStream?.getAudioTracks()[0];if(t){t.enabled=!t.enabled;$('toggleMic').textContent=t.enabled?'🎤 Mute':'🔇 Unmute';}};
 $('toggleCam').onclick=()=>{const t=localStream?.getVideoTracks()[0];if(t){t.enabled=!t.enabled;$('toggleCam').textContent=t.enabled?'📹 Camera':'🚫 Camera';}};
-socket.on('call:answer',async({answer})=>{if(!peer)return;await peer.setRemoteDescription(answer);for(const c of pendingIce.splice(0))await peer.addIceCandidate(c);callTitle.textContent='Connected';});
-socket.on('call:ice',async({candidate})=>{if(!candidate)return;const c=new RTCIceCandidate(candidate);if(peer?.remoteDescription?.type)await peer.addIceCandidate(c);else pendingIce.push(c);});
+socket.on('call:answer',async({answer})=>{if(!peer)return;try{await peer.setRemoteDescription(answer);for(const c of pendingIce.splice(0))await peer.addIceCandidate(c);callTitle.textContent='Connecting…';}catch(e){console.error('Failed to apply call answer:',e);callTitle.textContent='Could not connect call';}});
+socket.on('call:ice',async({candidate})=>{if(!candidate)return;try{const c=new RTCIceCandidate(candidate);if(peer?.remoteDescription?.type)await peer.addIceCandidate(c);else pendingIce.push(c);}catch(e){console.warn('Could not add ICE candidate:',e);}});
 socket.on('call:reject',()=>{alert('Call rejected or unavailable.');cleanup();});
 socket.on('call:end',cleanup);
-function cleanup(){try{peer?.close();}catch{}peer=null;localStream?.getTracks().forEach(t=>t.stop());localStream=null;callPeerId=null;incomingOffer=null;pendingIce.length=0;remoteVideo.srcObject=null;localVideo.srcObject=null;callPanel.classList.add('hidden');}
+socket.on('call:unavailable',({message}={})=>{alert(message||'This user is unavailable for calls.');cleanup();});
+function cleanup(){
+  if(callDisconnectTimer){clearTimeout(callDisconnectTimer);callDisconnectTimer=null;}
+  try{peer?.close();}catch{}
+  peer=null;
+  localStream?.getTracks().forEach(t=>t.stop());localStream=null;
+  callPeerId=null;incomingOffer=null;pendingIce.length=0;
+  remoteVideo.srcObject=null;localVideo.srcObject=null;
+  callPanel.classList.add('hidden');
+}
