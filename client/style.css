@@ -339,3 +339,36 @@ html, body {
     max-height: none;
   }
 }
+
+
+/* Mobile fix: let the Online users drawer open above Watch Together without closing the player. */
+@media (max-width: 760px) {
+  .chat-layout.watch-visible > .sidebar {
+    display: block;
+    position: absolute;
+    top: 62px;
+    bottom: 0;
+    left: 0;
+    width: min(310px, 84vw);
+    z-index: 32;
+    transform: translateX(-105%);
+    background: #080d12f7;
+    box-shadow: 20px 0 50px #000b;
+  }
+  .chat-layout.watch-visible > .sidebar.open {
+    transform: translateX(0);
+  }
+  .chat-layout.watch-visible > .sidebar-overlay {
+    display: block;
+    position: absolute;
+    inset: 62px 0 0;
+    z-index: 31;
+    background: #0009;
+  }
+  .chat-layout.watch-visible > .sidebar-overlay.hidden {
+    display: none;
+  }
+  .chat-layout.watch-visible > #watchModal {
+    z-index: 4;
+  }
+}
