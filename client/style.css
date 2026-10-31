@@ -591,3 +591,257 @@ html, body {
     display: none;
   }
 }
+
+
+/* DrishyaChat login page — final desktop composition and brand sizing */
+@media (min-width: 1101px) {
+  html, body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  .app {
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    padding: 16px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  #joinView.login-screen {
+    position: relative;
+    width: min(1500px, 100%);
+    height: calc(100dvh - 32px);
+    min-height: 650px;
+    max-height: calc(100dvh - 32px);
+    padding: 30px 38px;
+    display: grid;
+    grid-template-columns: 240px 528px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    justify-content: start;
+    column-gap: 36px;
+    row-gap: 0;
+    overflow: hidden;
+  }
+
+  .login-visual {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    width: 240px;
+    min-width: 240px;
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 0 0 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .login-logo {
+    box-sizing: border-box;
+    flex: 0 0 64px;
+    width: 64px;
+    min-width: 64px;
+    height: 56px;
+    min-height: 56px;
+    border-radius: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .login-brand h1 {
+    white-space: nowrap;
+    font-size: 36px;
+    line-height: 1;
+    letter-spacing: -1.4px;
+  }
+
+  .login-brand p {
+    white-space: nowrap;
+    font-size: 12px;
+    margin-top: 7px;
+  }
+
+  .login-toplinks {
+    position: fixed;
+    top: 48px;
+    right: max(54px, calc((100vw - 1500px) / 2 + 54px));
+    z-index: 8;
+    display: block;
+    font-size: 16px;
+  }
+
+  .login-features {
+    margin-top: clamp(54px, 8vh, 76px);
+    gap: clamp(22px, 4vh, 34px);
+    max-width: 240px;
+  }
+
+  .feature {
+    gap: 14px;
+  }
+
+  .feature-icon {
+    flex: 0 0 54px;
+    width: 54px;
+    height: 54px;
+  }
+
+  .login-slogan {
+    margin-top: auto;
+    margin-bottom: 28px;
+    font-size: clamp(30px, 2.6vw, 36px);
+    line-height: 1.02;
+  }
+
+  .login-footer {
+    margin-top: 0;
+    padding-bottom: 0;
+  }
+
+  .join-card {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+    align-self: center;
+    width: 528px;
+    max-width: 528px;
+    padding: 28px;
+    margin: 0;
+    transform: translateY(10px);
+  }
+
+  /* The guide card is intentionally visible beneath the password note. */
+  .join-card .open-guide-btn {
+    display: flex !important;
+    margin-top: 15px;
+  }
+
+  .join-card .login-guide {
+    display: none;
+  }
+
+  .creator-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 12px;
+    z-index: 4;
+    text-align: center;
+  }
+}
+
+/* Mid-size desktop/tablet: preserve the same hierarchy without overlap. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  html, body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app {
+    min-height: 100dvh;
+    height: auto;
+    padding: 18px;
+    display: block;
+  }
+
+  #joinView.login-screen {
+    width: 100%;
+    min-height: calc(100dvh - 36px);
+    height: auto;
+    max-height: none;
+    padding: 28px;
+    display: grid;
+    grid-template-columns: minmax(190px, 0.8fr) minmax(360px, 1.2fr);
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 28px;
+    overflow: visible;
+  }
+
+  .login-visual {
+    grid-column: 1;
+    min-width: 0;
+    min-height: 590px;
+  }
+
+  .login-logo {
+    flex: 0 0 58px;
+    width: 58px;
+    min-width: 58px;
+    height: 52px;
+  }
+
+  .login-brand h1 {
+    font-size: clamp(27px, 3.2vw, 35px);
+    white-space: nowrap;
+  }
+
+  .login-toplinks {
+    display: none;
+  }
+
+  .join-card {
+    grid-column: 2;
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+    transform: none;
+  }
+
+  .join-card .open-guide-btn {
+    display: flex !important;
+  }
+
+  .creator-footer {
+    position: static;
+    grid-column: 1 / -1;
+    padding-top: 4px;
+  }
+}
+
+/* Compact logo proportions and readable brand on mobile. */
+@media (max-width: 760px) {
+  .login-brand {
+    gap: 12px;
+  }
+
+  .login-logo {
+    box-sizing: border-box;
+    flex: 0 0 54px;
+    width: 54px;
+    min-width: 54px;
+    height: 48px;
+    min-height: 48px;
+    border-radius: 15px;
+  }
+
+  .login-brand h1 {
+    white-space: nowrap;
+    font-size: clamp(26px, 7vw, 31px);
+    letter-spacing: -1.2px;
+  }
+
+  .join-card .open-guide-btn {
+    display: flex;
+  }
+}
