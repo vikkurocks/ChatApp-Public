@@ -445,3 +445,18 @@ html, body {
 @media(min-width:761px){
   .join-card{margin-bottom:20px}
 }
+
+/* Fix: keep the mobile Online Users drawer available while Watch Together is open. */
+@media(max-width:760px){
+  .chat-layout.watch-visible>.sidebar{
+    display:block;
+    position:absolute;
+    left:0;
+    top:62px;
+    bottom:0;
+    width:min(310px,84vw);
+    z-index:12;
+  }
+  .chat-layout.watch-visible>.sidebar.open{transform:translateX(0)}
+  .chat-layout.watch-visible>.sidebar-overlay{z-index:11}
+}
