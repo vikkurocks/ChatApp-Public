@@ -251,7 +251,7 @@ imageInput.addEventListener('change',async()=>{
 // Watch Together: shared YouTube/MP4 player with room-wide playback synchronization.
 const watchModal=$('watchModal'), watchYoutubeForm=$('watchYoutubeForm'), watchYoutubeUrl=$('watchYoutubeUrl');
 const watchFileInput=$('watchFileInput'), watchStatus=$('watchStatus'), watchEmpty=$('watchEmpty');
-const watchYoutubeHost=$('watchYoutubeHost'), watchYoutubePlayerEl=$('watchYoutubePlayer'), watchMp4Player=$('watchMp4Player');
+const watchYoutubeHost=$('watchYoutubeHost'), watchYoutubePlayerEl=$('watchYoutubePlayer'), watchMp4Player=$('watchMp4Player'), watchExternalPlayer=$('watchExternalPlayer');
 let watchState=null, ytPlayer=null, ytApiPromise=null, remoteWatchApply=false, mp4ObjectUrl=null;
 let watchPoll=null, lastWatchTime=0, lastWatchPollAt=0, lastWatchSyncAt=0, lastWatchSignature='';
 function openWatch(){
@@ -296,7 +296,7 @@ function watchSyncPayload(){
   if(!watchState)return null;
   let currentTime=0,isPlaying=false;
   if(watchState.type==='youtube'&&ytPlayer?.getCurrentTime){try{currentTime=ytPlayer.getCurrentTime()||0;isPlaying=ytPlayer.getPlayerState()===1;}catch{}}
-  else if(watchState.type==='mp4'){currentTime=watchMp4Player.currentTime||0;isPlaying=!watchMp4Player.paused&&!watchMp4Player.ended;}
+  else if(watchState.type==='mp4'||watchState.type==='direct'){currentTime=watchMp4Player.currentTime||0;isPlaying=!watchMp4Player.paused&&!watchMp4Player.ended;}
   return {currentTime,isPlaying};
 }
 function emitWatchSync(force=false){
@@ -316,7 +316,7 @@ function applyRemotePlayback(state){
       if(Math.abs(now-(state.currentTime||0))>2)ytPlayer.seekTo(Math.max(0,state.currentTime||0),true);
       const playing=ytPlayer.getPlayerState()===1;
       if(state.isPlaying&&!playing)ytPlayer.playVideo();else if(!state.isPlaying&&playing)ytPlayer.pauseVideo();
-    }else if(state.type==='mp4'&&watchMp4Player.src){
+    }else if((state.type==='mp4'||state.type==='direct')&&watchMp4Player.src){
       const v=watchMp4Player;
       if(Math.abs((v.currentTime||0)-(state.currentTime||0))>2){try{v.currentTime=Math.max(0,state.currentTime||0);}catch{}}
       if(state.isPlaying&&v.paused){const p=v.play();if(p?.catch)p.catch(()=>{watchStatus.textContent='Tap Play on this device to allow synchronized playback.';});}
@@ -327,11 +327,11 @@ function applyRemotePlayback(state){
 }
 async function applyWatchState(state){
   if(!state||!state.type)return;
-  const signature=`${state.type}:${state.youtubeId||''}:${state.videoId||''}`;
+  const signature=`${state.type}:${state.youtubeId||''}:${state.videoId||''}:${state.embedUrl||''}:${state.mediaUrl||''}`;
   const changed=signature!==lastWatchSignatureForMedia;
   watchState=state;watchEmpty.classList.add('hidden');watchStatus.textContent=`Now sharing: ${state.title||'Video'} · controls are synchronized`;
   if(state.type==='youtube'){
-    watchYoutubeHost.classList.remove('hidden');watchMp4Player.classList.add('hidden');
+    watchExternalPlayer.classList.add('hidden');watchExternalPlayer.removeAttribute('src');watchYoutubeHost.classList.remove('hidden');watchMp4Player.classList.add('hidden');
     if(changed||!ytPlayer){
       lastWatchSignatureForMedia=signature;
       try{
@@ -344,30 +344,58 @@ async function applyWatchState(state){
         }});
       }catch(err){watchStatus.textContent=err.message||'Could not load YouTube video.';}
     }else applyRemotePlayback(state);
-  }else if(state.type==='mp4'){
-    watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.remove('hidden');
+  }else if(state.type==='mp4'||state.type==='direct'){
+    watchExternalPlayer.classList.add('hidden');watchExternalPlayer.removeAttribute('src');watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.remove('hidden');
     if(changed||!watchMp4Player.src){
       lastWatchSignatureForMedia=signature;
       if(mp4ObjectUrl){URL.revokeObjectURL(mp4ObjectUrl);mp4ObjectUrl=null;}
       watchMp4Player.pause();watchMp4Player.removeAttribute('src');watchMp4Player.load();
       try{
-        watchStatus.textContent='Loading shared MP4…';
-        const r=await fetch(`${SERVER_URL}/api/watch/video/${encodeURIComponent(state.videoId)}`,{headers:{Authorization:`Bearer ${token}`}});
-        if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Could not load MP4.');}
-        const blob=await r.blob();mp4ObjectUrl=URL.createObjectURL(blob);watchMp4Player.src=mp4ObjectUrl;watchMp4Player.load();
+        if(state.type==='direct'){watchMp4Player.src=state.mediaUrl;}
+        else{
+          watchStatus.textContent='Loading shared MP4…';
+          const r=await fetch(`${SERVER_URL}/api/watch/video/${encodeURIComponent(state.videoId)}`,{headers:{Authorization:`Bearer ${token}`}});
+          if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Could not load MP4.');}
+          const blob=await r.blob();mp4ObjectUrl=URL.createObjectURL(blob);watchMp4Player.src=mp4ObjectUrl;
+        }
+        watchMp4Player.load();
         watchMp4Player.onloadedmetadata=()=>{try{watchMp4Player.currentTime=Math.max(0,state.currentTime||0);}catch{}if(state.isPlaying)watchMp4Player.play().catch(()=>{watchStatus.textContent='Tap Play to allow video playback on this device.';});};
-        watchStatus.textContent=`Now sharing: ${state.title||'MP4'} · controls are synchronized`;
-      }catch(err){watchStatus.textContent=err.message||'Could not load MP4.';}
+        watchStatus.textContent=`Now sharing: ${state.title||'Video'} · controls are synchronized`;
+      }catch(err){watchStatus.textContent=err.message||'Could not load video.';}
     }else applyRemotePlayback(state);
+  }else if(state.type==='embed'){
+    watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.add('hidden');watchExternalPlayer.classList.remove('hidden');
+    if(changed||watchExternalPlayer.src!==state.embedUrl){lastWatchSignatureForMedia=signature;watchExternalPlayer.src=state.embedUrl;watchStatus.textContent=`Now sharing: ${state.title||'External video'} · provider controls may not sync`;}
   }
   lastWatchTime=Number(state.currentTime)||0;lastWatchPollAt=Date.now();
 }
 let lastWatchSignatureForMedia='';
+function detectSharedVideo(raw){
+  let u;try{u=new URL(raw.trim());}catch{return null;}
+  if(!['http:','https:'].includes(u.protocol))return null;
+  const host=u.hostname.toLowerCase().replace(/^www\./,'');
+  if(host==='youtu.be'||host==='youtube.com'||host.endsWith('.youtube.com')){
+    const id=extractYoutubeId(u.href);return id&&id.length===11?{type:'youtube',youtubeId:id,title:'YouTube video'}:null;
+  }
+  if(host==='drive.google.com'){
+    const m=u.pathname.match(/\/file\/d\/([A-Za-z0-9_-]+)/)||u.pathname.match(/\/uc\/(?:export\/)?(?:view|download)/);
+    const id=m?.[1]||u.searchParams.get('id');
+    return id?{type:'embed',embedUrl:`https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`,title:'Google Drive video'}:null;
+  }
+  if(host==='vimeo.com'||host.endsWith('.vimeo.com')){
+    const m=u.pathname.match(/\/(?:video\/)?(\d+)/);return m?{type:'embed',embedUrl:`https://player.vimeo.com/video/${m[1]}`,title:'Vimeo video'}:null;
+  }
+  if(host==='dailymotion.com'||host.endsWith('.dailymotion.com')||host==='dai.ly'){
+    const m=u.pathname.match(/\/video\/([A-Za-z0-9]+)/)||u.pathname.match(/^\/([A-Za-z0-9]+)/);return m?{type:'embed',embedUrl:`https://www.dailymotion.com/embed/video/${m[1]}`,title:'Dailymotion video'}:null;
+  }
+  if(/\.(mp4|webm|ogg)(?:$)/i.test(u.pathname))return {type:'direct',mediaUrl:u.href,title:'External video'};
+  return null;
+}
 watchYoutubeForm.addEventListener('submit',e=>{
-  e.preventDefault();const youtubeId=extractYoutubeId(watchYoutubeUrl.value);
-  if(!youtubeId||youtubeId.length!==11){watchStatus.textContent='Please paste a valid YouTube video link.';return;}
+  e.preventDefault();const detected=detectSharedVideo(watchYoutubeUrl.value);
+  if(!detected){watchStatus.textContent='Unsupported link. Use YouTube, a public Google Drive video, Vimeo, Dailymotion, or a direct MP4/WebM/OGG URL.';return;}
   if(!socket.connected){watchStatus.textContent='Reconnect to the room before sharing a video.';return;}
-  socket.emit('watch:set',{type:'youtube',youtubeId,title:'YouTube video'},r=>{if(!r?.ok)watchStatus.textContent=r?.error||'Could not share video.';else watchStatus.textContent='YouTube link shared with the room.';});
+  socket.emit('watch:set',detected,r=>{if(!r?.ok)watchStatus.textContent=r?.error||'Could not share video.';else{watchStatus.textContent='Video link shared with the room.';watchYoutubeUrl.value='';}});
 });
 watchFileInput.addEventListener('change',async()=>{
   const file=watchFileInput.files?.[0];watchFileInput.value='';if(!file)return;
@@ -398,7 +426,7 @@ watchPoll=setInterval(()=>{
 socket.on('watch:state',state=>{applyWatchState(state);});
 socket.on('watch:sync',state=>{if(watchState&&state.type===watchState.type&&(state.youtubeId||'')===(watchState.youtubeId||'')&&(state.videoId||'')===(watchState.videoId||''))applyRemotePlayback(state);});
 socket.on('watch:cleared',()=>{
-  watchState=null;lastWatchSignatureForMedia='';lastWatchSignature='';watchEmpty.classList.remove('hidden');watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.add('hidden');watchStatus.textContent='Video stopped for everyone.';
+  watchState=null;lastWatchSignatureForMedia='';lastWatchSignature='';watchEmpty.classList.remove('hidden');watchYoutubeHost.classList.add('hidden');watchMp4Player.classList.add('hidden');watchExternalPlayer.classList.add('hidden');watchExternalPlayer.removeAttribute('src');watchStatus.textContent='Video stopped for everyone.';
   try{ytPlayer?.destroy();}catch{}ytPlayer=null;watchYoutubePlayerEl.innerHTML='';watchMp4Player.pause();watchMp4Player.removeAttribute('src');watchMp4Player.load();if(mp4ObjectUrl){URL.revokeObjectURL(mp4ObjectUrl);mp4ObjectUrl=null;}
 });
 
