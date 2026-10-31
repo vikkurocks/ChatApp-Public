@@ -181,11 +181,15 @@ async function initDb() {
       video_type VARCHAR(16) NOT NULL,
       youtube_id VARCHAR(32),
       video_id UUID,
+      embed_url TEXT,
+      media_url TEXT,
       title TEXT NOT NULL DEFAULT '',
       playback_time DOUBLE PRECISION NOT NULL DEFAULT 0,
       is_playing BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE watch_states ADD COLUMN IF NOT EXISTS embed_url TEXT;
+    ALTER TABLE watch_states ADD COLUMN IF NOT EXISTS media_url TEXT;
   `);
 }
 
@@ -421,30 +425,41 @@ io.on("connection", async socket => {
   if (!isReconnecting) socket.to(room).emit("system:message", `${name} joined the room`);
 
   try {
-    const savedWatch = await pool.query("SELECT video_type,youtube_id,video_id,title,playback_time,is_playing FROM watch_states WHERE room_id=$1", [room]);
+    const savedWatch = await pool.query("SELECT video_type,youtube_id,video_id,embed_url,media_url,title,playback_time,is_playing FROM watch_states WHERE room_id=$1", [room]);
     if (savedWatch.rowCount) {
       const r = savedWatch.rows[0];
-      socket.emit("watch:state", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime: Number(r.playback_time || 0), isPlaying: Boolean(r.is_playing) });
+      socket.emit("watch:state", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, embedUrl: r.embed_url, mediaUrl: r.media_url, title: r.title, currentTime: Number(r.playback_time || 0), isPlaying: Boolean(r.is_playing) });
     }
   } catch (err) { console.error("watch state load failed:", err.message); }
 
   socket.on("watch:set", async (payload = {}, callback) => {
     const done = typeof callback === "function" ? callback : () => {};
     try {
-      const type = payload.type === "mp4" ? "mp4" : payload.type === "youtube" ? "youtube" : "";
+      const type = ["mp4", "youtube", "embed", "direct"].includes(payload.type) ? payload.type : "";
       const youtubeId = String(payload.youtubeId || "").trim();
       const videoId = type === "mp4" ? String(payload.videoId || "") : null;
-      const title = String(payload.title || (type === "youtube" ? "YouTube video" : "Shared MP4")).slice(0, 180);
+      const embedUrl = type === "embed" ? String(payload.embedUrl || "") : null;
+      const mediaUrl = type === "direct" ? String(payload.mediaUrl || "") : null;
+      const title = String(payload.title || (type === "youtube" ? "YouTube video" : "Shared video")).slice(0, 180);
       if (!type) return done({ ok: false, error: "Unsupported video type." });
       if (type === "youtube" && !/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return done({ ok: false, error: "Invalid YouTube video ID." });
+      if (type === "embed") {
+        let u; try { u = new URL(embedUrl); } catch { return done({ ok: false, error: "Invalid embed URL." }); }
+        const allowed = (u.hostname === "drive.google.com" && u.pathname.endsWith("/preview")) || (u.hostname === "player.vimeo.com" && u.pathname.startsWith("/video/")) || (u.hostname === "www.dailymotion.com" && u.pathname.startsWith("/embed/video/"));
+        if (u.protocol !== "https:" || !allowed) return done({ ok: false, error: "This video embed provider is not supported." });
+      }
+      if (type === "direct") {
+        let u; try { u = new URL(mediaUrl); } catch { return done({ ok: false, error: "Invalid video URL." }); }
+        if (u.protocol !== "https:" || !/\.(mp4|webm|ogg)$/i.test(u.pathname)) return done({ ok: false, error: "Use a secure direct MP4, WebM or OGG video URL." });
+      }
       if (type === "mp4") {
         const exists = await pool.query("SELECT id FROM shared_videos WHERE id=$1 AND room_id=$2", [videoId, room]);
         if (!exists.rowCount) return done({ ok: false, error: "Upload the MP4 again; it was not found." });
       }
-      const state = { type, youtubeId: type === "youtube" ? youtubeId : null, videoId, title, currentTime: 0, isPlaying: false };
-      await pool.query(`INSERT INTO watch_states(room_id,video_type,youtube_id,video_id,title,playback_time,is_playing,updated_at)
-        VALUES($1,$2,$3,$4,$5,0,false,NOW()) ON CONFLICT(room_id) DO UPDATE SET video_type=EXCLUDED.video_type,youtube_id=EXCLUDED.youtube_id,video_id=EXCLUDED.video_id,title=EXCLUDED.title,playback_time=0,is_playing=false,updated_at=NOW()`,
-        [room, state.type, state.youtubeId, state.videoId, state.title]);
+      const state = { type, youtubeId: type === "youtube" ? youtubeId : null, videoId, embedUrl, mediaUrl, title, currentTime: 0, isPlaying: false };
+      await pool.query(`INSERT INTO watch_states(room_id,video_type,youtube_id,video_id,embed_url,media_url,title,playback_time,is_playing,updated_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,0,false,NOW()) ON CONFLICT(room_id) DO UPDATE SET video_type=EXCLUDED.video_type,youtube_id=EXCLUDED.youtube_id,video_id=EXCLUDED.video_id,embed_url=EXCLUDED.embed_url,media_url=EXCLUDED.media_url,title=EXCLUDED.title,playback_time=0,is_playing=false,updated_at=NOW()`,
+        [room, state.type, state.youtubeId, state.videoId, state.embedUrl, state.mediaUrl, state.title]);
       io.to(room).emit("watch:state", state);
       done({ ok: true });
     } catch (err) { console.error("watch set failed:", err.message); done({ ok: false, error: "Could not set shared video." }); }
@@ -454,10 +469,10 @@ io.on("connection", async socket => {
     try {
       const currentTime = Math.max(0, Math.min(Number(payload.currentTime) || 0, 24 * 60 * 60));
       const isPlaying = Boolean(payload.isPlaying);
-      const saved = await pool.query("UPDATE watch_states SET playback_time=$2,is_playing=$3,updated_at=NOW() WHERE room_id=$1 RETURNING video_type,youtube_id,video_id,title", [room, currentTime, isPlaying]);
+      const saved = await pool.query("UPDATE watch_states SET playback_time=$2,is_playing=$3,updated_at=NOW() WHERE room_id=$1 RETURNING video_type,youtube_id,video_id,embed_url,media_url,title", [room, currentTime, isPlaying]);
       if (!saved.rowCount) return;
       const r = saved.rows[0];
-      socket.to(room).emit("watch:sync", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, title: r.title, currentTime, isPlaying, by: socket.id });
+      socket.to(room).emit("watch:sync", { type: r.video_type, youtubeId: r.youtube_id, videoId: r.video_id, embedUrl: r.embed_url, mediaUrl: r.media_url, title: r.title, currentTime, isPlaying, by: socket.id });
     } catch (err) { console.error("watch sync failed:", err.message); }
   });
 
