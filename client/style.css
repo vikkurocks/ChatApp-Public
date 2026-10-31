@@ -845,3 +845,26 @@ html, body {
     display: flex;
   }
 }
+
+/* DrishyaChat: final login-card clearance fix (desktop only).
+   Keeps the existing design and behavior; gives the brand its own column
+   and reserves visual space above the creator credit. */
+@media (min-width: 1101px) {
+  #joinView.login-screen {
+    grid-template-columns: 285px 528px minmax(0, 1fr);
+    column-gap: 36px;
+  }
+
+  #joinView.login-screen > .login-visual {
+    width: 285px;
+    min-width: 285px;
+  }
+
+  #joinView.login-screen > .join-card {
+    transform: translateY(-14px);
+  }
+
+  #joinView.login-screen > .creator-footer {
+    bottom: 9px;
+  }
+}
