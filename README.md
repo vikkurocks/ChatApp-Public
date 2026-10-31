@@ -1,4 +1,4 @@
-# ChatApp Public Upgrade v2
+# DrishyaChat Public Upgrade v2
 
 A room-based real-time chat application built with Node.js, Express,
 Socket.IO, and a browser-based frontend. The app supports
