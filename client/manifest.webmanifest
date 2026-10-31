@@ -1,7 +1,7 @@
 {
-  "name": "ChatApp",
-  "short_name": "ChatApp",
-  "description": "Private real-time conversations with ChatApp",
+  "name": "DrishyaChat",
+  "short_name": "DrishyaChat",
+  "description": "Private real-time conversations with DrishyaChat",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
