@@ -432,7 +432,7 @@ socket.on('watch:cleared',()=>{
 
 socket.on('connect_error',e=>console.error(e.message));
 socket.on('message:new',item=>{addMessage(item);notifyIncoming(item);});
-socket.on('system:message',t=>{addSystem(t);showSystemNotification('ChatApp',t,`chatapp-system-${Date.now()}`);});
+socket.on('system:message',t=>{addSystem(t);showSystemNotification('DrishyaChat',t,`chatapp-system-${Date.now()}`);});
 socket.on('users:update',renderUsers);
 socket.on('message:deleted',({id})=>{
   const el=messages.querySelector(`[data-id="${CSS.escape(id)}"]`);if(!el)return;
@@ -448,7 +448,7 @@ const callPanel=$('callPanel'),callTitle=$('callTitle'),remoteVideo=$('remoteVid
 let callDisconnectTimer=null;
 function showCall(title,incoming=false){callTitle.textContent=title;callPanel.classList.remove('hidden');incomingActions.classList.toggle('hidden',!incoming);activeActions.classList.toggle('hidden',incoming);}
 function closePanel(){if(callPeerId)socket.emit('call:end',{to:callPeerId});cleanup();}
-async function getMedia(kind){if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera/microphone unavailable. Open ChatApp over HTTPS and allow camera/microphone permissions.');return navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'});}
+async function getMedia(kind){if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera/microphone unavailable. Open DrishyaChat over HTTPS and allow camera/microphone permissions.');return navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'});}
 async function getIceServers(){
   try {
     const r=await fetch(`${SERVER_URL}/config`);
