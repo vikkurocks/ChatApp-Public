@@ -1,136 +1,120 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DrishyaChat</title>
-  <meta name="theme-color" content="#080706">
-  <meta name="application-name" content="DrishyaChat">
-  <link rel="icon" href="assets/icons/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/chatapp-icon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/chatapp-icon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>DrishyaChat — Join a Room</title>
+<meta content="#080706" name="theme-color"/>
+<meta content="DrishyaChat" name="application-name"/>
+<link href="assets/icons/favicon.ico" rel="icon" sizes="any"/>
+<link href="assets/icons/chatapp-icon-32.png" rel="icon" sizes="32x32" type="image/png"/>
+<link href="assets/icons/chatapp-icon-16.png" rel="icon" sizes="16x16" type="image/png"/>
+<link href="assets/icons/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180"/>
+<link href="manifest.webmanifest" rel="manifest"/>
+<link href="style.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"/>
 </head>
 <body>
 <main class="app">
-  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
-  <section id="joinView" class="login-screen">
-    <div class="login-visual">
-      <header class="login-brand">
-        <div class="login-logo" aria-hidden="true"><span></span><span></span><span></span></div>
-        <div><h1>Drishya<span>Chat</span></h1><p>Real Conversations <b>•</b> No Limits</p></div>
-      </header>
-      <div class="login-toplinks" aria-hidden="true">Connect <i>•</i> Chat <i>•</i> Share</div>
-      <div class="login-features">
-        <div class="feature"><span class="feature-icon">ϟ</span><div><strong>Instant Chat</strong><small>Talk to your friends<br>in real-time</small></div></div>
-        <div class="feature"><span class="feature-icon">⬡</span><div><strong>Secure &amp; Private</strong><small>Your data stays<br>with you</small></div></div>
-        <div class="feature"><span class="feature-icon">♧</span><div><strong>Create Rooms</strong><small>Chat with anyone,<br>anytime</small></div></div>
-      </div>
-      <div class="login-slogan">Better<br>Conversations<br>Together<span class="slogan-underline"></span></div>
-      <div class="login-footer">A private space for your people <span>✦</span></div>
-    </div>
-    <section class="card join-card">
-      <div class="form-heading"><span class="form-wave">👋</span><div><h2>Join / Create Room</h2><p>Fill in the details below to get started</p></div></div>
-      <form id="joinForm">
-        <label for="name">Username</label>
-        <input id="name" maxlength="24" minlength="2" placeholder="Your name" autocomplete="off" required>
-        <label for="room">Room name</label>
-        <input id="room" maxlength="40" minlength="2" placeholder="e.g. Friends" autocomplete="off" required>
-        <label for="password">Room password</label>
-        <input id="password" type="password" minlength="8" maxlength="128" placeholder="Minimum 8 characters" required>
-        <button type="submit">↪ &nbsp; Join / Create Room</button>
-        <p id="joinError" class="error"></p>
-      </form>
-      <div class="note"><span>⬡</span><div><strong>Your room is protected by a password</strong><small>Use a strong password and don't share it publicly.</small></div></div>
-
-      <a class="open-guide-btn" href="guide.html">
-        <span class="open-guide-icon" aria-hidden="true">✦</span>
-        <span><strong>How to use DrishyaChat</strong><small>Chat, Watch Together and voice/video calls</small></span>
-        <span class="open-guide-arrow" aria-hidden="true">↗</span>
-      </a>
-    </section>
-    <footer class="creator-footer">Made with <span aria-label="love">♥</span> by <strong>Vikas &amp; Shivam</strong></footer>
-  </section>
-  <section id="chatView" class="chat-layout hidden">
-    <header class="topbar">
-      <div class="room-info"><h1><span class="room-mark" id="roomMark">Room</span><span id="roomTitle">Room</span></h1><span class="status"><i></i> Online</span></div>
-      <div class="top-actions">
-        <button id="usersToggle" class="secondary mobile-only" type="button">👥 <span id="mobileOnlineCount">0</span></button>
-        <button id="watchOpenBtn" class="secondary watch-open-btn" type="button">🎬 Watch</button>
-        <button id="leaveBtn" class="secondary">Leave</button>
-      </div>
-    </header>
-    <aside id="sidebar" class="sidebar">
-      <div class="side-title">Online <span id="onlineCount">0</span></div>
-      <div id="users"></div>
-    </aside>
-    <div id="sidebarOverlay" class="sidebar-overlay hidden"></div>
-    <section class="chat">
-      <div id="messages" class="messages"></div>
-      <div id="typingIndicator" class="typing-indicator"></div>
-      <div id="replyBar" class="reply-bar hidden"><div><small>Replying to</small><div id="replyText"></div></div><button id="cancelReply" type="button">✕</button></div>
-      <div id="emojiPicker" class="emoji-picker hidden"></div>
-      <form id="messageForm" class="composer">
-        <button id="emojiBtn" type="button" class="emoji-btn" aria-label="Emoji">😊</button>
-        <button id="imageBtn" type="button" class="image-btn" aria-label="Share image" title="Share image">📷</button>
-        <input id="imageInput" type="file" accept="image/*" hidden>
-        <input id="messageInput" maxlength="2000" placeholder="Type a message..." autocomplete="off">
-        <button type="submit">Send</button>
-      </form>
-    </section>
-    <div id="imageViewer" class="image-viewer hidden" role="dialog" aria-modal="true" aria-label="Image viewer">
-      <button id="closeImageViewer" class="image-viewer-close" type="button" aria-label="Close image">✕</button>
-      <img id="viewerImage" alt="Shared image">
-    </div>
-    <section id="watchModal" class="watch-modal hidden" role="dialog" aria-modal="true" aria-labelledby="watchHeading">
-      <div class="watch-card">
-        <header class="watch-header">
-          <div><h2 id="watchHeading">🎬 Watch Together</h2><p>Paste a YouTube, Google Drive, Vimeo, Dailymotion or direct video link.</p></div>
-          <button id="watchCloseBtn" class="secondary" type="button" aria-label="Close Watch Together">✕</button>
-        </header>
-        <form id="watchYoutubeForm" class="watch-link-form">
-          <input id="watchYoutubeUrl" type="url" placeholder="Paste a video link (YouTube, Drive, Vimeo, Dailymotion, MP4…)" autocomplete="url" aria-label="Video link">
-          <button type="submit">Share link</button>
-        </form>
-        <div class="watch-upload-row">
-          <label class="watch-file-label" for="watchFileInput">📁 Choose MP4</label>
-          <input id="watchFileInput" type="file" accept="video/mp4,.mp4,video/quicktime" hidden>
-          <span id="watchStatus" role="status">Everyone in this room can control playback.</span>
-          <button id="watchStopBtn" class="secondary" type="button">Stop video</button>
-        </div>
-        <div id="watchPlayerShell" class="watch-player-shell">
-          <div id="watchEmpty" class="watch-empty"><span>▶</span><strong>No shared video yet</strong><small>Share a YouTube link or choose an MP4 to start watching together.</small></div>
-          <div id="watchYoutubeHost" class="watch-media hidden"><div id="watchYoutubePlayer"></div></div>
-          <video id="watchMp4Player" class="watch-media hidden" controls playsinline preload="metadata"></video>
-          <iframe id="watchExternalPlayer" class="watch-media hidden" title="Shared external video" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
-        </div>
-        <div class="watch-footnote">YouTube, uploaded MP4 and direct video files support synchronized playback. External embedded players depend on the provider and may not synchronize their controls. Some sites block embedding or require sign-in.</div>
-      </div>
-    </section>
-
-    <div id="callPanel" class="call-panel hidden">
-      <div class="call-head"><span id="callTitle">Call</span><button id="closeCall" type="button">✕</button></div>
-      <div class="call-videos">
-        <video id="remoteVideo" autoplay playsinline></video>
-        <video id="localVideo" autoplay muted playsinline></video>
-        <div id="audioOnly" class="audio-only">📞</div>
-      </div>
-      <div id="incomingActions" class="call-actions hidden"><button id="acceptCall">Accept</button><button id="rejectCall" class="danger">Reject</button></div>
-      <div id="activeActions" class="call-actions hidden"><button id="toggleMic">🎤 Mute</button><button id="toggleCam">📹 Camera</button><button id="endCall" class="danger">☎ End</button></div>
-    </div>
-  </section>
-</main>
-<div id="joinLoading" class="join-loading hidden" role="status" aria-live="polite" aria-hidden="true">
-  <div class="join-loading-card">
-    <div class="join-loading-spinner" aria-hidden="true"></div>
-    <strong>Joining your room</strong>
-    <span>Please wait while we connect you securely…</span>
-  </div>
+<div aria-atomic="true" aria-live="polite" class="toast-container" id="toastContainer"></div>
+<section class="login-screen" id="joinView">
+<div class="login-visual">
+<header class="login-brand">
+<img alt="DrishyaChat Golden Eye Logo" class="login-brand-image" src="assets/images/Drishya-bgr-logo.png"/>
+</header>
+<div aria-hidden="true" class="login-toplinks">Connect <i>•</i> Chat <i>•</i> Share</div>
+<div class="login-features">
+<div class="feature"><span class="feature-icon">ϟ</span><div><strong>Instant Chat</strong><small>Talk to your friends<br/>in real-time</small></div></div>
+<div class="feature"><span class="feature-icon">⬡</span><div><strong>Secure &amp; Private</strong><small>Your data stays<br/>with you</small></div></div>
+<div class="feature"><span class="feature-icon">♧</span><div><strong>Create Rooms</strong><small>Chat with anyone,<br/>anytime</small></div></div>
 </div>
-<script src="https://chatapp-public-vcku.onrender.com/socket.io/socket.io.js"></script>
-<script src="config.js"></script>
-<script src="app.js"></script>
-</body>
+<div class="login-slogan">Better<br/>Conversations<br/>Together<span class="slogan-underline"></span></div>
+<div class="login-footer">A private space for your people <span>✦</span></div>
+</div>
+<!-- LARGE GOLDEN EYE LOGO -->
+<!-- <div class="login-hero-logo">
+  <img
+    src="assets/images/Drishya-logo.png"
+    alt="DrishyaChat Golden Eye Logo"
+  >
+</div> -->
+<section class="card join-card">
+<div class="form-heading">
+<div class="form-wave">
+<i class="fa-solid fa-comments"></i>
+</div>
+<div>
+<h2>Welcome to DrishyaChat</h2>
+<p>Your private space for real conversations</p>
+</div>
+</div>
+<form id="joinForm">
+<div class="input-group">
+<label for="name">
+<i class="fa-solid fa-user"></i> Username
+      </label>
+<div class="input-wrapper">
+<i class="fa-solid fa-user-astronaut input-icon"></i>
+<input autocomplete="off" id="name" maxlength="24" minlength="2" placeholder="Enter your name" required=""/>
+</div>
+</div>
+<div class="input-group">
+<label for="room">
+<i class="fa-solid fa-door-open"></i> Room Name
+      </label>
+<div class="input-wrapper">
+<i class="fa-solid fa-users input-icon"></i>
+<input autocomplete="off" id="room" maxlength="40" minlength="2" placeholder="e.g. Friends" required=""/>
+</div>
+</div>
+<div class="input-group">
+<label for="password">
+<i class="fa-solid fa-lock"></i> Room Password
+      </label>
+<div class="input-wrapper">
+<i class="fa-solid fa-key input-icon"></i>
+<input id="password" maxlength="128" minlength="8" placeholder="Minimum 8 characters" required="" type="password"/>
+</div>
+</div>
+<button class="join-submit-btn" type="submit">
+<i class="fa-solid fa-right-to-bracket"></i>
+      Join / Create Room
+      <i class="fa-solid fa-arrow-right submit-arrow"></i>
+</button>
+<p class="error" id="joinError"></p>
+</form>
+<div class="note">
+<div class="note-icon">
+<i class="fa-solid fa-shield-halved"></i>
+</div>
+<div>
+<strong>Your room is protected</strong>
+<small>Your conversations stay private and secure.</small>
+</div>
+<i class="fa-solid fa-check-circle note-check"></i>
+</div>
+<a class="open-guide-btn" href="guide.html">
+<span class="open-guide-icon">
+<i class="fa-solid fa-circle-play"></i>
+</span>
+<span>
+<strong>Explore DrishyaChat</strong>
+<small>Chat, Watch Together &amp; Voice/Video Calls</small>
+</span>
+<span class="open-guide-arrow">
+<i class="fa-solid fa-arrow-up-right-from-square"></i>
+</span>
+</a>
+</section>
+<footer class="creator-footer">Made with <span aria-label="love">♥</span> by <strong>Vikas &amp; Shivam</strong></footer>
+</section>
+
+</main>
+
+
+
+
+
+<script src="config.js"></script><script src="login.js"></script></body>
 </html>
