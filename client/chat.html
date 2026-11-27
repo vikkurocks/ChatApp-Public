@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>DrishyaChat — Chat Room</title>
+<meta content="#080706" name="theme-color"/>
+<meta content="DrishyaChat" name="application-name"/>
+<link href="assets/icons/favicon.ico" rel="icon" sizes="any"/>
+<link href="assets/icons/chatapp-icon-32.png" rel="icon" sizes="32x32" type="image/png"/>
+<link href="assets/icons/chatapp-icon-16.png" rel="icon" sizes="16x16" type="image/png"/>
+<link href="assets/icons/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180"/>
+<link href="manifest.webmanifest" rel="manifest"/>
+<link href="style.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"/>
+</head>
+<body>
+<main class="app">
+<div aria-atomic="true" aria-live="polite" class="toast-container" id="toastContainer"></div>
+
+<section class="chat-layout" id="chatView">
+<header class="topbar">
+<div class="room-info">
+<h1>
+<span class="room-mark logo-mark">
+<img alt="DrishyaChat Logo" src="assets/images/Drishya-logo.png"/>
+</span>
+<span id="roomTitle">Room</span>
+<span class="hidden" id="roomMark">Room</span>
+</h1></div>
+<div class="top-actions">
+<button class="secondary mobile-only" id="usersToggle" type="button">👥 <span id="mobileOnlineCount">0</span></button>
+<button class="secondary watch-open-btn" id="watchOpenBtn" type="button"><i class="fa-solid fa-film"></i> Watch</button>
+<button class="secondary" id="leaveBtn"> <i class="fa-solid fa-right-from-bracket"></i> Leave</button>
+</div>
+</header>
+<aside class="sidebar" id="sidebar">
+<div class="side-title">Online <span id="onlineCount">0</span></div>
+<div id="users"></div>
+</aside>
+<div class="sidebar-overlay hidden" id="sidebarOverlay"></div>
+<section class="chat">
+<div class="chat-partner-header" id="chatPartnerHeader">
+<i class="fa-solid fa-user"></i>
+<span>Connecting...</span>
+</div>
+<div class="messages" id="messages"></div>
+<div class="typing-indicator" id="typingIndicator"></div>
+<div class="reply-bar hidden" id="replyBar"><div><small>Replying to</small><div id="replyText"></div></div><button id="cancelReply" type="button">✕</button></div>
+<div class="emoji-picker hidden" id="emojiPicker"></div>
+<form class="composer" id="messageForm">
+<button aria-label="Emoji" class="emoji-btn" id="emojiBtn" type="button">😊</button>
+<button aria-label="Share image" class="image-btn" id="imageBtn" title="Share image" type="button">📷</button>
+<input accept="image/*" hidden="" id="imageInput" type="file"/>
+<input autocomplete="off" id="messageInput" maxlength="2000" placeholder="Message the room..."/>
+<button aria-label="Send message" title="Send message" type="submit">
+</button>
+</form>
+</section>
+<div aria-label="Image viewer" aria-modal="true" class="image-viewer hidden" id="imageViewer" role="dialog">
+<button aria-label="Close image" class="image-viewer-close" id="closeImageViewer" type="button"><i class="fa-solid fa-xmark"></i></button>
+<img alt="Shared image" id="viewerImage"/>
+</div>
+<section aria-labelledby="watchHeading" aria-modal="true" class="watch-modal hidden" id="watchModal" role="dialog">
+<div class="watch-card">
+<header class="watch-header">
+<div><h2 id="watchHeading">🎬 Watch Together</h2><p>Paste a YouTube, Google Drive, Vimeo, Dailymotion or direct video link.</p></div>
+<button aria-label="Close Watch Together" id="watchCloseBtn" type="button"><i class="fa-solid fa-xmark"></i> </button>
+</header>
+<form class="watch-link-form" id="watchYoutubeForm">
+<input aria-label="Video link" autocomplete="url" id="watchYoutubeUrl" placeholder="Paste a video link (YouTube, Drive, Vimeo, Dailymotion, MP4…)" type="url"/>
+<button type="submit"><i class="fa-solid fa-share-nodes"></i> Share</button>
+</form>
+<div class="watch-upload-row">
+
+
+<span id="watchStatus" role="status">Share a supported video link with everyone in this room.</span>
+<button id="watchStopBtn" title="Stop video" type="button">
+<svg fill="none" height="22" viewbox="0 0 140 140" width="22">
+<path d="M112 48 A62 62 0 1 0 70 132" stroke="currentColor" stroke-linecap="round" stroke-width="9"></path>
+<path d="M53 48 Q53 43 59 46 L86 64 Q91 68 86 72 L59 91 Q53 95 53 89 Z" fill="currentColor"></path>
+<rect fill="currentColor" height="30" rx="5" width="10" x="91" y="85"></rect>
+<rect fill="currentColor" height="30" rx="5" width="10" x="108" y="85"></rect>
+</svg>
+            Pause 
+        </button>
+</div>
+<div class="watch-player-shell" id="watchPlayerShell">
+<div class="watch-empty" id="watchEmpty"><span>▶</span><strong>No shared video yet</strong><small>Share a YouTube link or choose an MP4 to start watching together.</small></div>
+<div class="watch-media hidden" id="watchYoutubeHost"><div id="watchYoutubePlayer"></div></div>
+<video class="watch-media hidden" controls="" id="watchMp4Player" playsinline="" preload="metadata"></video>
+<iframe allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen="" class="watch-media hidden" id="watchExternalPlayer" referrerpolicy="strict-origin-when-cross-origin" title="Shared external video"></iframe>
+</div>
+<div class="watch-footnote">YouTube, uploaded MP4 and direct video files support synchronized playback. External embedded players depend on the provider and may not synchronize their controls. Some sites block embedding or require sign-in.</div>
+</div>
+</section>
+<div class="call-panel hidden" id="callPanel">
+<div class="call-head"><span id="callTitle">Call</span><button id="closeCall" type="button">✕</button></div>
+<div class="call-videos">
+<video autoplay="" id="remoteVideo" playsinline=""></video>
+<video autoplay="" id="localVideo" muted="" playsinline=""></video>
+<div class="audio-only" id="audioOnly">📞</div>
+</div>
+<div class="call-actions hidden" id="incomingActions"><button id="acceptCall">Accept</button><button class="danger" id="rejectCall">Reject</button></div>
+<div class="call-actions hidden" id="activeActions">
+<button class="voice-control mic-control" id="toggleMic">
+<span class="control-icon"><i class="fa-solid fa-microphone-slash"></i></span>
+<span class="control-label">Mute</span>
+</button>
+<button class="voice-control camera-control" id="toggleCam">
+<span class="control-icon"><i class="fa-solid fa-video"></i></span>
+<span class="control-label">Camera</span>
+</button>
+<button class="voice-control end-control danger" id="endCall">
+<span class="control-icon"><i class="fa-solid fa-phone"></i></span>
+<span class="control-label">End</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+
+
+
+
+
+<script src="config.js"></script><script>(function(){const base=String(window.CHAT_SERVER_URL||'').replace(/\/$/,'');if(!base){location.replace('index.html');return;}const s=document.createElement('script');s.src=base+'/socket.io/socket.io.js';s.onload=()=>{const a=document.createElement('script');a.src='app.js';document.body.appendChild(a);};s.onerror=()=>{alert('Could not load ChatApp server client. Check backend URL.');location.replace('index.html');};document.head.appendChild(s);})();</script></body>
+</html>
