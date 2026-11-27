@@ -7,7 +7,13 @@ const messages=$('messages'), users=$('users'), onlineCount=$('onlineCount'), mo
 const messageForm=$('messageForm'), messageInput=$('messageInput'), typingIndicator=$('typingIndicator');
 const replyBar=$('replyBar'), replyText=$('replyText'), emojiPicker=$('emojiPicker');
 const imageBtn=$('imageBtn'), imageInput=$('imageInput'), imageViewer=$('imageViewer'), viewerImage=$('viewerImage');
-let myName='', replyTo=null, typingTimer, token='';
+let chatSession=null;
+try { chatSession=JSON.parse(sessionStorage.getItem('drishya_chat_session')||'null'); } catch { chatSession=null; }
+if(!chatSession?.token || !chatSession?.name || !chatSession?.room){
+  sessionStorage.removeItem('drishya_chat_session');
+  location.replace('index.html');
+}
+let myName=chatSession?.name||'', replyTo=null, typingTimer, token=chatSession?.token||'';
 let notificationsEnabled=false;
 const sidebar=$('sidebar'), usersToggle=$('usersToggle'), sidebarOverlay=$('sidebarOverlay');
 let peer=null, localStream=null, callPeerId=null, callKind='video', incomingOffer=null;
@@ -88,42 +94,164 @@ $('closeImageViewer').onclick=closeImage;
 imageViewer.addEventListener('click',e=>{if(e.target===imageViewer)closeImage();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeImage();});
 
-function addMessage(item){
-  const mine=item.name===myName, el=document.createElement('div');
-  el.className=`msg ${mine?'mine':''}`; el.dataset.id=item.id;
-  const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${item.name} · ${timeText(item.time)}`;
-  const wrap=document.createElement('div'); wrap.className='bubble-wrap';
-  const bubble=document.createElement('div'); bubble.className=`bubble ${item.deleted?'deleted':''}`;
-  if(item.replyTo){
-    const rp=document.createElement('div'); rp.className='reply-preview';
-    const name=document.createElement('b'); name.textContent=item.replyTo.name;
-    const br=document.createElement('br');
-    const txt=document.createElement('span'); txt.textContent=item.replyTo.type==='image'?'📷 Image':item.replyTo.text;
-    rp.append(name,br,txt); bubble.appendChild(rp);
+
+function addMessage(item) {
+  const mine = item.name === myName;
+
+  const el = document.createElement('div');
+  el.className = `msg ${mine ? 'mine' : ''}`;
+  el.dataset.id = item.id;
+
+  // Avatar
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = (item.name || '?').trim().charAt(0).toUpperCase();
+
+  // Main message column
+  const main = document.createElement('div');
+  main.className = 'msg-main';
+
+  // Sender + timestamp
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+
+  const sender = document.createElement('span');
+  sender.className = 'msg-sender';
+  sender.textContent = item.name;
+
+  const dot = document.createElement('span');
+  dot.className = 'msg-dot';
+  dot.textContent = '•';
+
+  const timestamp = document.createElement('span');
+  timestamp.className = 'msg-time';
+  timestamp.textContent = timeText(item.time);
+
+  meta.append(sender, dot, timestamp);
+
+  // Bubble wrapper
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap';
+
+  // Message bubble
+  const bubble = document.createElement('div');
+  bubble.className = `bubble ${item.deleted ? 'deleted' : ''}`;
+
+  // Reply preview
+  if (item.replyTo) {
+      const rp = document.createElement('div');
+      rp.className = 'reply-preview';
+
+      const replyName = document.createElement('b');
+      replyName.textContent = item.replyTo.name;
+
+      const br = document.createElement('br');
+
+      const replyText = document.createElement('span');
+      replyText.textContent =
+          item.replyTo.type === 'image'
+              ? '📷 Image'
+              : item.replyTo.text;
+
+      rp.append(replyName, br, replyText);
+      bubble.appendChild(rp);
   }
-  const content=document.createElement('div'); content.className='message-content';
-  if(item.deleted){
-    content.className='message-text'; content.textContent='This message was deleted';
-  }else if(item.type==='image'){
-    const img=document.createElement('img'); img.className='chat-image'; img.src=item.text; img.alt='Shared image'; img.loading='lazy';
-    img.addEventListener('click',()=>openImage(item.text));
-    content.appendChild(img);
-  }else{
-    content.className='message-text'; content.textContent=item.text;
+
+  // Message content
+  const content = document.createElement('div');
+  content.className = 'message-content';
+
+  if (item.deleted) {
+      content.className = 'message-text';
+      content.textContent = 'This message was deleted';
+
+  } else if (item.type === 'image') {
+      const img = document.createElement('img');
+      img.className = 'chat-image';
+      img.src = item.text;
+      img.alt = 'Shared image';
+      img.loading = 'lazy';
+
+      img.addEventListener('click', () => openImage(item.text));
+
+      content.appendChild(img);
+
+  } else {
+      content.className = 'message-text';
+      content.textContent = item.text;
   }
-  bubble.appendChild(content); wrap.appendChild(bubble);
-  if(!item.deleted){
-    const actions=document.createElement('div'); actions.className='message-actions';
-    const reply=document.createElement('button'); reply.className='action reply-action'; reply.type='button'; reply.title='Reply'; reply.textContent='↩️';
-    reply.onclick=()=>startReply(item); actions.appendChild(reply);
-    if(mine){const del=document.createElement('button');del.className='action delete-action';del.type='button';del.title='Delete';del.textContent='🗑️';del.onclick=()=>deleteMessage(item.id);actions.appendChild(del);}
-    wrap.appendChild(actions);
+
+  bubble.appendChild(content);
+  wrap.appendChild(bubble);
+
+  // Reply and delete actions
+  if (!item.deleted) {
+      const actions = document.createElement('div');
+      actions.className = 'message-actions';
+
+      const reply = document.createElement('button');
+      reply.className = 'action reply-action';
+      reply.type = 'button';
+      reply.title = 'Reply';
+      reply.innerHTML = '<i class="fa-solid fa-reply"></i>';
+
+      reply.onclick = () => startReply(item);
+      actions.appendChild(reply);
+
+      if (mine) {
+          const del = document.createElement('button');
+          del.className = 'action delete-action';
+          del.type = 'button';
+          del.title = 'Delete';
+          del.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
+
+          del.onclick = () => deleteMessage(item.id);
+          actions.appendChild(del);
+      }
+
+      wrap.appendChild(actions);
   }
-  el.append(meta,wrap); messages.appendChild(el); scrollBottom();
+
+  // Assemble message
+  main.append(meta, wrap);
+  el.append(avatar, main);
+
+  messages.appendChild(el);
+  scrollBottom();
 }
+
 function addSystem(t){const e=document.createElement('div');e.className='system';e.textContent=t;messages.appendChild(e);scrollBottom();}
 function renderUsers(list){
-  users.innerHTML=''; onlineCount.textContent=list.length; if(mobileOnlineCount) mobileOnlineCount.textContent=list.length;
+  users.innerHTML='';
+  onlineCount.textContent=list.length;
+  if(mobileOnlineCount) mobileOnlineCount.textContent=list.length;
+
+  // Chat room header update
+  const chatPartnerHeader = document.getElementById('chatPartnerHeader');
+
+  if(chatPartnerHeader){
+    const otherUsers = list.filter(u => u.name !== myName);
+    const names = otherUsers.map(u => u.name).join(', ');
+
+    chatPartnerHeader.innerHTML = `
+      <div class="room-members">
+        <i class="fa-solid fa-users"></i>
+        <span>${escapeHtml(names || 'Waiting for members...')}</span>
+      </div>
+
+      <div class="room-header-right">
+        <span class="live-badge">
+          <span class="live-dot"></span>
+          LIVE ROOM
+        </span>
+        <span class="member-count">
+          <i class="fa-solid fa-user-group"></i>
+          ${list.length} Members
+        </span>
+      </div>
+    `;
+  }
+
   list.forEach(u=>{
     const e=document.createElement('div');e.className='user';
     const l=document.createElement('span');l.textContent=u.name+(u.name===myName?' (you)':'');e.appendChild(l);
@@ -142,67 +270,6 @@ function deleteMessage(id){if(confirm('Delete this message?'))socket.emit('messa
 function updateTyping(){const n=[...typingUsers];typingIndicator.textContent=n.length===0?'':n.length===1?`${n[0]} is typing...`:`${n.join(', ')} are typing...`;}
 function renderEmojis(){emojiPicker.innerHTML='';emojis.forEach(e=>{const b=document.createElement('button');b.className='emoji';b.type='button';b.textContent=e;b.onclick=()=>{messageInput.value+=e;messageInput.focus();};emojiPicker.appendChild(b);});}
 
-joinForm.addEventListener('submit',async e=>{
-  e.preventDefault();
-  joinError.textContent='';
-  const name=$('name').value.trim(), room=$('room').value.trim(), password=$('password').value;
-  if(!SERVER_URL || SERVER_URL.includes('REPLACE-WITH')){
-    joinError.textContent='Set your backend URL in config.js first.';
-    return;
-  }
-
-  const loading=$('joinLoading');
-  const submitButton=joinForm.querySelector('button[type="submit"]');
-  const originalButtonText=submitButton?.textContent||'Join / Create Room';
-  if(loading){
-    loading.classList.remove('hidden');
-    loading.setAttribute('aria-hidden','false');
-  }
-  if(submitButton){
-    submitButton.disabled=true;
-    submitButton.textContent='Connecting…';
-  }
-
-  try{
-    const r=await fetch(`${SERVER_URL}/api/join`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,room,password})
-    });
-    const data=await r.json();
-    if(!r.ok)throw new Error(data.error||'Could not join.');
-
-    token=data.token;
-    myName=data.user.name;
-    roomTitle.textContent=data.room;
-    const roomMark=document.getElementById('roomMark');
-    if(roomMark){
-      roomMark.textContent=data.room.trim().slice(0,8);
-      roomMark.title=data.room;
-    }
-    messages.innerHTML='';
-    requestNotifications();
-    data.messages.forEach(addMessage);
-    socket.auth={token};
-    socket.connect();
-    joinView.classList.add('hidden');
-    chatView.classList.remove('hidden');
-    openWatch();
-    messageInput.focus();
-  }catch(err){
-    joinError.textContent=err.message||'Could not join the room.';
-  }finally{
-    if(loading){
-      loading.classList.add('hidden');
-      loading.setAttribute('aria-hidden','true');
-    }
-    if(submitButton){
-      submitButton.disabled=false;
-      submitButton.textContent=originalButtonText;
-    }
-  }
-});
-
 messageForm.addEventListener('submit',e=>{
   e.preventDefault();
   const text=messageInput.value.trim(); if(!text||!socket.connected)return;
@@ -213,7 +280,11 @@ messageForm.addEventListener('submit',e=>{
 messageInput.addEventListener('input',()=>{socket.emit('typing',{isTyping:messageInput.value.length>0});clearTimeout(typingTimer);typingTimer=setTimeout(()=>socket.emit('typing',{isTyping:false}),1200);});
 $('emojiBtn').onclick=()=>emojiPicker.classList.toggle('hidden');
 $('cancelReply').onclick=cancelReply;
-$('leaveBtn').onclick=()=>location.reload();
+$('leaveBtn').onclick=()=>{
+  try{socket.disconnect();}catch{}
+  sessionStorage.removeItem('drishya_chat_session');
+  location.replace('index.html');
+};
 function closeUsers(){sidebar?.classList.remove('open');sidebarOverlay?.classList.add('hidden');}
 usersToggle?.addEventListener('click',()=>{sidebar.classList.toggle('open');sidebarOverlay.classList.toggle('hidden',!sidebar.classList.contains('open'));});
 sidebarOverlay?.addEventListener('click',closeUsers);
@@ -250,7 +321,7 @@ imageInput.addEventListener('change',async()=>{
 
 // Watch Together: shared YouTube/MP4 player with room-wide playback synchronization.
 const watchModal=$('watchModal'), watchYoutubeForm=$('watchYoutubeForm'), watchYoutubeUrl=$('watchYoutubeUrl');
-const watchFileInput=$('watchFileInput'), watchStatus=$('watchStatus'), watchEmpty=$('watchEmpty');
+const watchStatus=$('watchStatus'), watchEmpty=$('watchEmpty');
 const watchYoutubeHost=$('watchYoutubeHost'), watchYoutubePlayerEl=$('watchYoutubePlayer'), watchMp4Player=$('watchMp4Player'), watchExternalPlayer=$('watchExternalPlayer');
 let watchState=null, ytPlayer=null, ytApiPromise=null, remoteWatchApply=false, mp4ObjectUrl=null;
 let watchPoll=null, lastWatchTime=0, lastWatchPollAt=0, lastWatchSyncAt=0, lastWatchSignature='';
@@ -397,18 +468,6 @@ watchYoutubeForm.addEventListener('submit',e=>{
   if(!socket.connected){watchStatus.textContent='Reconnect to the room before sharing a video.';return;}
   socket.emit('watch:set',detected,r=>{if(!r?.ok)watchStatus.textContent=r?.error||'Could not share video.';else{watchStatus.textContent='Video link shared with the room.';watchYoutubeUrl.value='';}});
 });
-watchFileInput.addEventListener('change',async()=>{
-  const file=watchFileInput.files?.[0];watchFileInput.value='';if(!file)return;
-  if(!socket.connected){watchStatus.textContent='Reconnect to the room before uploading.';return;}
-  if(!/\.mp4$/i.test(file.name)&&file.type!=='video/mp4'){watchStatus.textContent='Choose an MP4 file.';return;}
-  if(file.size>20*1024*1024){watchStatus.textContent='MP4 must be 20 MB or smaller.';return;}
-  try{
-    watchStatus.textContent='Uploading MP4…';
-    const r=await fetch(`${SERVER_URL}/api/watch/upload`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'video/mp4','X-Video-Name':encodeURIComponent(file.name)},body:file});
-    const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Upload failed.');
-    socket.emit('watch:set',{type:'mp4',videoId:data.videoId,title:data.title},ack=>{if(!ack?.ok)watchStatus.textContent=ack?.error||'Could not share uploaded video.';});
-  }catch(err){watchStatus.textContent=err.message||'MP4 upload failed.';}
-});
 $('watchStopBtn').onclick=()=>{if(!socket.connected)return;socket.emit('watch:stop');};
 watchMp4Player.addEventListener('play',()=>emitWatchSync(true));
 watchMp4Player.addEventListener('pause',()=>emitWatchSync(true));
@@ -430,7 +489,13 @@ socket.on('watch:cleared',()=>{
   try{ytPlayer?.destroy();}catch{}ytPlayer=null;watchYoutubePlayerEl.innerHTML='';watchMp4Player.pause();watchMp4Player.removeAttribute('src');watchMp4Player.load();if(mp4ObjectUrl){URL.revokeObjectURL(mp4ObjectUrl);mp4ObjectUrl=null;}
 });
 
-socket.on('connect_error',e=>console.error(e.message));
+socket.on('connect_error',e=>{
+  console.error(e.message);
+  if(/expired|invalid|authentication required/i.test(e.message||'')){
+    sessionStorage.removeItem('drishya_chat_session');
+    location.replace('index.html');
+  }
+});
 socket.on('message:new',item=>{addMessage(item);notifyIncoming(item);});
 socket.on('system:message',t=>{addSystem(t);showSystemNotification('DrishyaChat',t,`chatapp-system-${Date.now()}`);});
 socket.on('users:update',renderUsers);
@@ -506,7 +571,24 @@ socket.on('call:offer',({from,name,offer})=>{if(peer){socket.emit('call:reject',
 $('acceptCall').onclick=async()=>{if(!incomingOffer)return;try{localStream=await getMedia(callKind);localVideo.srcObject=localStream;const pc=await makePeer(callPeerId);await pc.setRemoteDescription(incomingOffer.offer);for(const c of pendingIce.splice(0))await pc.addIceCandidate(c);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);socket.emit('call:answer',{to:callPeerId,answer:pc.localDescription});incomingOffer=null;showCall('Connected');}catch(e){alert(e.message);socket.emit('call:reject',{to:callPeerId});cleanup();}};
 $('rejectCall').onclick=()=>{if(callPeerId)socket.emit('call:reject',{to:callPeerId});cleanup();};
 $('endCall').onclick=closePanel;$('closeCall').onclick=closePanel;
-$('toggleMic').onclick=()=>{const t=localStream?.getAudioTracks()[0];if(t){t.enabled=!t.enabled;$('toggleMic').textContent=t.enabled?'🎤 Mute':'🔇 Unmute';}};
+$('toggleMic').onclick = () => {
+  const t = localStream?.getAudioTracks()[0];
+  if (!t) return;
+
+  t.enabled = !t.enabled;
+
+  const btn = $('toggleMic');
+  const icon = btn.querySelector('.control-icon');
+  const label = btn.querySelector('.control-label');
+
+  if (t.enabled) {
+      icon.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+      label.textContent = 'Mute';
+  } else {
+      icon.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+      label.textContent = 'Unmute';
+  }
+};
 $('toggleCam').onclick=()=>{const t=localStream?.getVideoTracks()[0];if(t){t.enabled=!t.enabled;$('toggleCam').textContent=t.enabled?'📹 Camera':'🚫 Camera';}};
 socket.on('call:answer',async({answer})=>{if(!peer)return;try{await peer.setRemoteDescription(answer);for(const c of pendingIce.splice(0))await peer.addIceCandidate(c);callTitle.textContent='Connecting…';}catch(e){console.error('Failed to apply call answer:',e);callTitle.textContent='Could not connect call';}});
 socket.on('call:ice',async({candidate})=>{if(!candidate)return;try{const c=new RTCIceCandidate(candidate);if(peer?.remoteDescription?.type)await peer.addIceCandidate(c);else pendingIce.push(c);}catch(e){console.warn('Could not add ICE candidate:',e);}});
@@ -522,3 +604,29 @@ function cleanup(){
   remoteVideo.srcObject=null;localVideo.srcObject=null;
   callPanel.classList.add('hidden');
 }
+
+
+// Restore the authenticated room session on the dedicated chat page.
+if(chatSession && token){
+  roomTitle.textContent=chatSession.room;
+  const roomMark=$('roomMark');
+  if(roomMark){roomMark.textContent=chatSession.room.trim().slice(0,8);roomMark.title=chatSession.room;}
+  messages.innerHTML='';
+  (async()=>{
+    try{
+      const response=await fetch(`${SERVER_URL}/api/messages`,{headers:{Authorization:`Bearer ${token}`}});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(data.error||'Session expired.');
+      (Array.isArray(data.messages)?data.messages:[]).forEach(addMessage);
+      socket.auth={token};
+      socket.connect();
+      openWatch();
+      messageInput.focus();
+    }catch(err){
+      console.error('Chat session restore failed:',err);
+      sessionStorage.removeItem('drishya_chat_session');
+      location.replace('index.html');
+    }
+  })();
+}
+
