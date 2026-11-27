@@ -158,6 +158,11 @@ async function initDb() {
     );
 
     ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(16) NOT NULL DEFAULT 'text';
+    -- Preserve message history if a stale user row is eventually removed.
+    ALTER TABLE messages ALTER COLUMN user_id DROP NOT NULL;
+    ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey;
+    ALTER TABLE messages ADD CONSTRAINT messages_user_id_fkey
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
     ALTER TABLE messages ALTER COLUMN text TYPE TEXT;
     ALTER TABLE messages ALTER COLUMN reply_to_text TYPE TEXT;
 
@@ -333,25 +338,37 @@ function requestClaims(req, res, next) {
   }
 }
 
-// MP4 uploads are deliberately capped: this stores one shared video per room in PostgreSQL.
-app.post("/api/watch/upload", requestClaims, express.raw({ type: ["video/mp4", "application/octet-stream"], limit: "25mb" }), async (req, res) => {
+app.get("/api/messages", requestClaims, async (req, res) => {
   try {
-    const room = req.claims.room;
-    const rawName = String(req.headers["x-video-name"] || "Shared%20video.mp4");
-    let name = rawName; try { name = decodeURIComponent(rawName); } catch {}
-    name = name.replace(/[\/\r\n]/g, "_").slice(0, 180);
-    const mime = String(req.headers["content-type"] || "video/mp4").toLowerCase();
-    if (!/^video\/(mp4|quicktime)$/.test(mime)) return res.status(415).json({ error: "Please upload an MP4 video." });
-    if (!Buffer.isBuffer(req.body) || req.body.length < 1) return res.status(400).json({ error: "Video file is empty." });
-    if (req.body.length > 20 * 1024 * 1024) return res.status(413).json({ error: "MP4 must be 20 MB or smaller." });
-    const id = crypto.randomUUID();
-    await pool.query("DELETE FROM shared_videos WHERE room_id=$1", [room]);
-    await pool.query("INSERT INTO shared_videos(id,room_id,name,mime_type,data) VALUES($1,$2,$3,$4,$5)", [id, room, name, mime, req.body]);
-    res.json({ ok: true, videoId: id, title: name });
+    const result = await pool.query(`
+      SELECT id,name,text,message_type,created_at,reply_to_id,reply_to_name,reply_to_text,deleted
+      FROM messages
+      WHERE room_id=$1
+      ORDER BY created_at DESC
+      LIMIT 100
+    `, [req.claims.room]);
+    res.json({ messages: result.rows.reverse().map(row => ({
+      id: row.id,
+      name: row.name,
+      text: row.deleted ? "This message was deleted" : row.text,
+      type: row.deleted ? "text" : (row.message_type || "text"),
+      time: row.created_at,
+      deleted: row.deleted,
+      replyTo: row.reply_to_id ? {
+        id: row.reply_to_id,
+        name: row.reply_to_name,
+        text: row.reply_to_text
+      } : null
+    })) });
   } catch (err) {
-    console.error("watch upload failed:", err.message);
-    res.status(500).json({ error: "Could not store video. Check database space and try a smaller MP4." });
+    console.error("message history load failed:", err.message);
+    res.status(500).json({ error: "Could not load chat history." });
   }
+});
+
+// MP4 upload is intentionally disabled to avoid database/storage growth.
+app.post("/api/watch/upload", (_req, res) => {
+  res.status(410).json({ error: "MP4 uploads are temporarily disabled. Share a supported video link instead." });
 });
 
 app.get("/api/watch/video/:id", requestClaims, async (req, res) => {
@@ -435,7 +452,7 @@ io.on("connection", async socket => {
   socket.on("watch:set", async (payload = {}, callback) => {
     const done = typeof callback === "function" ? callback : () => {};
     try {
-      const type = ["mp4", "youtube", "embed", "direct"].includes(payload.type) ? payload.type : "";
+      const type = ["youtube", "embed", "direct"].includes(payload.type) ? payload.type : "";
       const youtubeId = String(payload.youtubeId || "").trim();
       const videoId = type === "mp4" ? String(payload.videoId || "") : null;
       const embedUrl = type === "embed" ? String(payload.embedUrl || "") : null;
@@ -451,10 +468,6 @@ io.on("connection", async socket => {
       if (type === "direct") {
         let u; try { u = new URL(mediaUrl); } catch { return done({ ok: false, error: "Invalid video URL." }); }
         if (u.protocol !== "https:" || !/\.(mp4|webm|ogg)$/i.test(u.pathname)) return done({ ok: false, error: "Use a secure direct MP4, WebM or OGG video URL." });
-      }
-      if (type === "mp4") {
-        const exists = await pool.query("SELECT id FROM shared_videos WHERE id=$1 AND room_id=$2", [videoId, room]);
-        if (!exists.rowCount) return done({ ok: false, error: "Upload the MP4 again; it was not found." });
       }
       const state = { type, youtubeId: type === "youtube" ? youtubeId : null, videoId, embedUrl, mediaUrl, title, currentTime: 0, isPlaying: false };
       await pool.query(`INSERT INTO watch_states(room_id,video_type,youtube_id,video_id,embed_url,media_url,title,playback_time,is_playing,updated_at)
